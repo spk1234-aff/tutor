@@ -125,6 +125,15 @@ table.s td,table.s th{padding:4px 6px;border-bottom:1px solid var(--line);text-a
 table.s th{color:var(--mute);font-weight:400}
 .inv{border:1.5px solid var(--line);border-radius:14px;padding:8px 12px;display:flex;flex-direction:column;gap:4px}
 .inv.paid{background:#f1faf5;border-color:#cdebdc}
+.hmonth{display:flex;align-items:baseline;gap:8px;margin:10px 0 2px;border-bottom:2px solid var(--line);padding-bottom:2px}
+.hmonth b{font-size:24px;color:var(--ink);flex:1}
+.hrow{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}
+.hrow .avatar{position:static;flex:none;width:38px;height:38px;font-size:21px}
+.hrow .who{flex:1;min-width:0;line-height:1.15}
+.hrow .who b{font-size:22px}
+.hrow .amt{font-weight:700;font-size:23px;white-space:nowrap}
+.hchips .chip{padding:2px 14px;font-size:20px}
+.hrow.issued .amt{color:var(--stamp)} .hrow.paid .amt{color:var(--paid)}
 .tag{font-size:17px;border-radius:999px;padding:0 10px;display:inline-block}
 .tag.paid{background:#d6f0e3;color:var(--paid)} .tag.issued{background:#fde8ea;color:var(--stamp)}
 #preview{max-width:100%;border:1.5px solid var(--line);border-radius:12px}
@@ -135,7 +144,8 @@ table.s th{color:var(--mute);font-weight:400}
 .fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));border-radius:999px;padding:10px 24px;font-size:22px;box-shadow:0 8px 22px -6px rgba(15,36,99,.6)}
 @media (max-width:520px){
   header{padding-left:14px;padding-right:14px;gap:10px} header h1{font-size:26px} header img{width:36px;height:36px}
-  #sync{font-size:14px;padding:1px 8px}
+  #sync{font-size:0;padding:0 4px;background:none} #sync::first-letter{font-size:20px}
+  .iconbtn{width:38px}
   .summary{gap:8px}.sum{min-width:0;padding:4px 10px 2px}.sum .v{font-size:28px}.sum .k{font-size:16px}
   main{padding-left:12px;padding-right:12px}
 }
@@ -146,6 +156,7 @@ table.s th{color:var(--mute);font-weight:400}
   <img src="icon-192.png" alt="">
   <div class="brand"><h1>สอนพิเศษ</h1><div id="today"></div></div>
   <span id="sync"></span>
+  <button class="iconbtn" id="btnHistory" title="ประวัติการเงิน" aria-label="ประวัติการเงิน">📒</button>
   <button class="iconbtn" id="btnSettings" title="ตั้งค่า">⚙️</button>
 </header>
 <main>
@@ -270,6 +281,7 @@ function render() {
   document.querySelectorAll('[data-act]').forEach(b => b.onclick = e => { e.stopPropagation(); ACTIONS[b.dataset.act](b.dataset.id, b.dataset.x); });
   if ('setAppBadge' in navigator) { const c = owe.length + due.length; (c ? navigator.setAppBadge(c) : navigator.clearAppBadge()).catch(() => {}); }
   if (openDetail && $('#dlg').open) showDetail(openDetail, true);
+  if (openHistory && $('#dlg').open) showHistory(openHistory, true);
 }
 const AVATAR = ['#1b3a8c', '#0f7c78', '#8a3fb8', '#c2410c', '#2563a8', '#b0234f', '#4d7c0f', '#6d4bd1'];
 const EMOJIS = ['🐶','🐱','🐰','🐻','🐼','🦊','🐯','🦁','🐸','🐧','🐥','🦄','🐙','🐳','🦖','🐢','🌸','🌻','⭐','🌈','⚽','🏀','🎮','🎨','🎸','🚀','📐','🧮'];
@@ -323,9 +335,9 @@ function cardHTML(s, st) {
 }
 
 /* ====================== กล่องโต้ตอบ ====================== */
-let openDetail = null;
+let openDetail = null, openHistory = null;
 function openSheet(html, onClose) {
-  const dlg = $('#dlg'); openDetail = null; $('#sheet').innerHTML = html;
+  const dlg = $('#dlg'); openDetail = null; openHistory = null; $('#sheet').innerHTML = html;
   if (!dlg.open) dlg.showModal();
   dlg.onclose = () => { openDetail = null; onClose && onClose(); };
   return $('#sheet');
@@ -598,12 +610,57 @@ function wrap(g, t, x, y, maxW, lh, font, color) {
   if (line) g.fillText(line, x, y);
   return y;
 }
-async function showInvoice(ivId) {
+/* ---------- ประวัติการเงินรวม ---------- */
+const shortDate = iso => { const d = parseISO(iso); return `${d.getDate()} ${TH_MONTHS[d.getMonth()]}`; };
+function showHistory(filter = 'all', rerender) {
+  const all = Object.values(db.invoices).sort((a, b) => (b.issuedAt || '').localeCompare(a.issuedAt || '') || (b.createdAt || 0) - (a.createdAt || 0));
+  const list = all.filter(iv => filter === 'all' || (filter === 'paid' ? iv.status === 'paid' : iv.status !== 'paid'));
+  const ym = todayISO().slice(0, 7);
+  const paidThisMonth = all.filter(iv => iv.status === 'paid' && (iv.paidAt || '').startsWith(ym)).reduce((t, iv) => t + (+iv.amount), 0);
+  const pending = all.filter(iv => iv.status !== 'paid'), pendingSum = pending.reduce((t, iv) => t + (+iv.amount), 0);
+  const monthName = k => { const [y, m] = k.split('-').map(Number); return `${TH_MONTH_FULL[m - 1]} ${y + 543}`; };
+  // จัดกลุ่มตามเดือน: รับเงินแล้วใช้เดือนที่รับเงิน, ยังไม่จ่ายใช้เดือนที่ออกใบแจ้ง
+  const groups = new Map();
+  list.forEach(iv => { const k = ((iv.status === 'paid' ? iv.paidAt : iv.issuedAt) || iv.issuedAt || '').slice(0, 7); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(iv); });
+  const keys = [...groups.keys()].sort().reverse();
+  const html = `
+    <div class="row"><h3 class="grow">ประวัติการเงิน</h3><button class="btn ghost" data-h="close">ปิด</button></div>
+    <div class="summary" style="grid-template-columns:repeat(2,minmax(0,1fr));margin:0">
+      <div class="sum"><div class="v" style="color:var(--paid)">${money0(paidThisMonth)}</div><div class="k">บาท รับแล้วเดือนนี้</div></div>
+      <div class="sum ${pending.length ? '' : 'zero'}"><div class="v" style="color:var(--stamp)">${money0(pendingSum)}</div><div class="k">บาท ยังไม่ได้รับ (${pending.length} ใบ)</div></div>
+    </div>
+    <div class="chips hchips">${[['all', 'ทั้งหมด'], ['issued', 'รอชำระ'], ['paid', 'รับเงินแล้ว']].map(([k, t]) => `<span class="chip ${filter === k ? 'on' : ''}" data-f="${k}">${t}</span>`).join('')}</div>
+    ${keys.length ? keys.map(k => {
+      const g = groups.get(k), got = g.filter(iv => iv.status === 'paid').reduce((t, iv) => t + (+iv.amount), 0);
+      return `<div class="hmonth"><b>${k ? monthName(k) : 'ไม่ระบุเดือน'}</b>${got ? `<span class="hint">รับแล้ว ${money0(got)} บาท</span>` : ''}</div>` +
+        g.map(iv => {
+          const st = db.students[iv.studentId] || { name: iv.studentName };
+          return `<div class="hrow ${iv.status === 'paid' ? 'paid' : 'issued'}">
+            ${avatarHTML(st)}
+            <div class="who"><b>${esc(st.name || iv.studentName)}</b><br><span class="hint">รอบที่ ${iv.round} · ${iv.sessionIds.length} คาบ</span><br>
+              <span class="hint">${iv.status === 'paid' ? `🔒 รับเงิน ${shortDate(iv.paidAt)}` : `ส่ง ${shortDate(iv.issuedAt)} · ${daysSince(iv.issuedAt) ? `ค้าง ${daysSince(iv.issuedAt)} วัน` : 'วันนี้'}`}</span></div>
+            <div style="text-align:right"><div class="amt">${money0(iv.amount)}</div>
+              <div class="row" style="justify-content:flex-end;gap:4px">${iv.status !== 'paid' ? `<button class="btn green" style="padding:0 10px;font-size:18px" data-h="paid" data-x="${iv.id}">รับเงิน</button>` : ''}<button class="btn" style="padding:0 10px;font-size:18px" data-h="view" data-x="${iv.id}">ดู</button></div></div>
+          </div>`;
+        }).join('');
+    }).join('') : '<div class="empty" style="font-size:20px">ยังไม่มีใบแจ้งในหมวดนี้</div>'}`;
+  const sh = rerender ? (($('#sheet').innerHTML = html), $('#sheet')) : openSheet(html);
+  openHistory = filter;
+  sh.querySelectorAll('[data-f]').forEach(c => c.onclick = () => showHistory(c.dataset.f, true));
+  sh.querySelectorAll('[data-h]').forEach(b => b.onclick = () => {
+    const x = b.dataset.x;
+    if (b.dataset.h === 'close') closeSheet();
+    else if (b.dataset.h === 'paid') markPaid(x);
+    else if (b.dataset.h === 'view') { const f = filter; showInvoice(x, () => showHistory(f)); }
+  });
+}
+
+async function showInvoice(ivId, onBack) {
   const iv = db.invoices[ivId]; if (!iv) return;
   const sid = iv.studentId;
   const sh = openSheet(`<div class="row" style="align-items:center"><h3 class="grow">ใบแจ้ง ${esc(iv.studentName)} รอบที่ ${iv.round}</h3><button class="btn ghost" id="vClose">ปิด</button></div>
     <div class="hint">กำลังสร้างรูป…</div>`);
-  $('#vClose').onclick = closeSheet;
+  $('#vClose').onclick = onBack || closeSheet;
   const canvas = await drawInvoice(iv);
   const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
   const url = URL.createObjectURL(blob);
@@ -617,7 +674,7 @@ async function showInvoice(ivId) {
     </div>
     <div class="hint">iPhone/iPad: กด แชร์ แล้วเลือก LINE หรือ “บันทึกรูปภาพ” · Mac: กด คัดลอกรูป แล้ววางในแชท LINE</div>
     ${iv.status !== 'paid' ? `<button class="btn green" id="vPaid">รับเงินแล้ว</button>` : `<div class="tag paid" style="align-self:flex-start">🔒 รับเงินแล้ว ${thDate(iv.paidAt, false)}</div>`}`;
-  $('#vClose').onclick = closeSheet;
+  $('#vClose').onclick = onBack || closeSheet;
   $('#vShare').onclick = async () => {
     const file = new File([blob], fname, { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file] }); } catch (e) {} }
@@ -627,7 +684,7 @@ async function showInvoice(ivId) {
     try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); toast('คัดลอกรูปแล้ว'); }
     catch (e) { toast('เบราว์เซอร์นี้คัดลอกรูปไม่ได้ ใช้ดาวน์โหลดแทน'); }
   };
-  if ($('#vPaid')) $('#vPaid').onclick = () => { markPaid(ivId); if (db.invoices[ivId].status === 'paid') showDetail(sid); };
+  if ($('#vPaid')) $('#vPaid').onclick = () => { markPaid(ivId); if (db.invoices[ivId].status === 'paid') (onBack || (() => showDetail(sid)))(); };
 }
 
 /* ---------- ตั้งค่า ---------- */
@@ -773,6 +830,7 @@ function showSync() {
 $('#btnAdd').onclick = () => showStudentForm();
 { const d = new Date(); $('#today').textContent = `วัน${TH_DAY_FULL[d.getDay()]} ${d.getDate()} ${TH_MONTH_FULL[d.getMonth()]}`; }
 $('#btnSettings').onclick = showSettings;
+$('#btnHistory').onclick = () => showHistory();
 // เคยล็อกอินไว้ → แสดงสำเนาข้อมูลคลาวด์ก่อนระหว่างรอซิงก์, ไม่เคย → ใช้ข้อมูลในเครื่อง
 loadFrom(localStorage.getItem('tutor-signed-in') ? MIRROR_KEY : LOCAL_KEY);
 render(); showSync();
