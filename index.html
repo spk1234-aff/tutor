@@ -55,6 +55,7 @@ main{max-width:1000px;margin:0 auto;padding:18px 16px 110px}
 .card .name{font-size:29px;font-weight:700;flex:1;line-height:1.1;color:var(--text)}
 .card .meta{color:var(--mute);font-size:18px;margin-top:-4px}
 .card.paused{opacity:.6}
+.editbtn{flex:none;border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:0 10px;font-size:18px;cursor:pointer;color:var(--ink);white-space:nowrap}
 
 /* ช่องคาบ: หนึ่งวงต่อหนึ่งคาบ */
 .slots{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
@@ -285,7 +286,7 @@ function cardHTML(s, st) {
   const stamp = s.paused ? '' : st.unpaid.length ? '<div class="stamp r">รอโอน</div>' : full ? '<div class="stamp">ครบรอบ</div>' : '';
   return `<div class="card ${cls} ${stamp ? 'has-stamp' : ''}">
     <div class="avatar" style="background:${avatarColor(s.name)}">${esc(initial(s.name))}</div>
-    <div class="top" data-act="detail" data-id="${s.id}"><div class="name">${esc(s.name)}</div>${stamp}</div>
+    <div class="top" data-act="detail" data-id="${s.id}"><div class="name">${esc(s.name)}</div>${stamp}<button class="editbtn" data-act="edit" data-id="${s.id}" title="แก้ไขข้อมูล ${esc(s.name)}" aria-label="แก้ไขข้อมูล ${esc(s.name)}">✏️ แก้ไข</button></div>
     <div class="meta">${s.perWeek} คาบ/สัปดาห์ ราคา ${money0(s.price)} บาท<br>รอบที่ ${st.round}${last ? ` สอนล่าสุด ${thDate(last.date, false)}` : ''}</div>
     <div class="slots" title="สอนแล้ว ${shown} จาก ${st.n} คาบ">${slots}</div>
     ${body}
@@ -310,6 +311,7 @@ $('#dlg').addEventListener('click', e => { if (e.target === $('#dlg')) closeShee
 
 const ACTIONS = {
   detail: id => showDetail(id),
+  edit: id => showStudentForm(id),
   log: id => showLog(id),
   issue: id => showIssue(id),
   paid: id => markPaid(id),
