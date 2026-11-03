@@ -50,7 +50,14 @@ main{max-width:1000px;margin:0 auto;padding:18px 16px 110px}
 /* การ์ด = กระดาษสมุดมีเส้นกั้นหน้า */
 .card{position:relative;background:#fff;border:1.5px solid var(--line);border-radius:6px 18px 18px 6px;padding:12px 14px 12px 64px;display:flex;flex-direction:column;gap:8px;box-shadow:0 1px 0 var(--line),0 6px 14px -10px rgba(27,58,140,.35)}
 .card::before{content:"";position:absolute;left:50px;top:0;bottom:0;width:2px;background:var(--margin);opacity:.7}
-.avatar{position:absolute;left:8px;top:12px;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:22px;color:#fff}
+.avatar{position:absolute;left:5px;top:10px;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:24px;color:#fff;overflow:hidden}
+.avatar.emoji{background:#eef2fb !important;font-size:26px;box-shadow:inset 0 0 0 2px var(--line)}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.iconpick{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.iconpick .ic{width:46px;height:46px;border-radius:50%;border:2px solid var(--line);background:#fff;display:grid;place-items:center;font-size:26px;cursor:pointer;overflow:hidden;padding:0}
+.iconpick .ic.on{border-color:var(--ink);box-shadow:0 0 0 3px #c9d6f5}
+.iconpick .ic img{width:100%;height:100%;object-fit:cover}
+.iconpick .ic.letter{color:#fff;font-weight:700;font-size:24px}
 .card .top{display:flex;align-items:center;gap:8px;cursor:pointer}
 .card .name{font-size:29px;font-weight:700;flex:1;line-height:1.1;color:var(--text)}
 .card .meta{color:var(--mute);font-size:18px;margin-top:-4px}
@@ -264,6 +271,22 @@ function render() {
   if (openDetail && $('#dlg').open) showDetail(openDetail, true);
 }
 const AVATAR = ['#1b3a8c', '#0f7c78', '#8a3fb8', '#c2410c', '#2563a8', '#b0234f', '#4d7c0f', '#6d4bd1'];
+const EMOJIS = ['🐶','🐱','🐰','🐻','🐼','🦊','🐯','🦁','🐸','🐧','🐥','🦄','🐙','🐳','🦖','🐢','🌸','🌻','⭐','🌈','⚽','🏀','🎮','🎨','🎸','🚀','📐','🧮'];
+const avatarHTML = s => {
+  const ic = s.icon || {};
+  if (ic.type === 'img') return `<div class="avatar"><img src="${esc(ic.v)}" alt=""></div>`;
+  if (ic.type === 'emoji') return `<div class="avatar emoji">${esc(ic.v)}</div>`;
+  return `<div class="avatar" style="background:${avatarColor(s.name || '?')}">${esc(initial(s.name || '?'))}</div>`;
+};
+function resizeImage(file, size = 160) {
+  return new Promise((res, rej) => {
+    const img = new Image(); img.onload = () => {
+      const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d');
+      const m = Math.min(img.width, img.height); g.drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, size, size);
+      URL.revokeObjectURL(img.src); res(c.toDataURL('image/jpeg', 0.82));
+    }; img.onerror = rej; img.src = URL.createObjectURL(file);
+  });
+}
 const avatarColor = name => AVATAR[[...name].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7) % AVATAR.length];
 const initial = name => { const t = name.replace(/^(น้อง|ด\.ช\.|ด\.ญ\.|นาย|นางสาว)\s*/, ''); return [...(t || name)].find(c => /[ก-ฮ A-Za-z0-9]/.test(c)) || '?'; };
 function cardHTML(s, st) {
@@ -285,7 +308,7 @@ function cardHTML(s, st) {
   else if (!s.paused && st.level >= 1 && st.ub.length === st.n - 1) body += `<span class="mark y">อีก 1 คาบครบรอบ</span>`;
   const stamp = s.paused ? '' : st.unpaid.length ? '<div class="stamp r">รอโอน</div>' : full ? '<div class="stamp">ครบรอบ</div>' : '';
   return `<div class="card ${cls} ${stamp ? 'has-stamp' : ''}">
-    <div class="avatar" style="background:${avatarColor(s.name)}">${esc(initial(s.name))}</div>
+    ${avatarHTML(s)}
     <div class="top" data-act="detail" data-id="${s.id}"><div class="name">${esc(s.name)}</div>${stamp}<button class="editbtn" data-act="edit" data-id="${s.id}" title="แก้ไขข้อมูล ${esc(s.name)}" aria-label="แก้ไขข้อมูล ${esc(s.name)}">✏️ แก้ไข</button></div>
     <div class="meta">${s.perWeek} คาบ/สัปดาห์ ราคา ${money0(s.price)} บาท<br>รอบที่ ${st.round}${last ? ` สอนล่าสุด ${thDate(last.date, false)}` : ''}</div>
     <div class="slots" title="สอนแล้ว ${shown} จาก ${st.n} คาบ">${slots}</div>
@@ -325,6 +348,9 @@ function showStudentForm(id) {
     <h3>${id ? 'แก้ไขข้อมูลนักเรียน' : 'เพิ่มนักเรียน'}</h3>
     <label class="f">ชื่อนักเรียน (จะแสดงบนใบแจ้ง)<input id="fName" value="${esc(s.name)}" placeholder="เช่น น้องเอ" autocomplete="off"></label>
     <label class="f">ชื่อผู้ปกครอง / หมายเหตุ (ไม่แสดงบนใบแจ้ง)<input id="fNote" value="${esc(s.note)}" autocomplete="off"></label>
+    <div class="f" style="color:var(--mute);font-size:19px">ไอคอนหน้าชื่อ</div>
+    <div class="iconpick" id="fIcon"></div>
+    <div class="row"><label class="btn">📷 ใช้รูปภาพ<input type="file" id="fImg" accept="image/*" hidden></label><span class="hint">ไม่เลือก จะใช้ตัวอักษรแรกของชื่อ</span></div>
     <div class="f" style="color:var(--mute);font-size:19px">เรียนสัปดาห์ละ</div>
     <div class="chips" id="fPer">${[1, 2, 3].map(n => `<span class="chip ${+s.perWeek === n ? 'on' : ''}" data-n="${n}">${n} คาบ</span>`).join('')}</div>
     <div class="row">
@@ -336,7 +362,26 @@ function showStudentForm(id) {
     <div class="row"><button class="btn ghost" id="fCancel">ยกเลิก</button><span class="grow"></span>
       ${id ? '<button class="btn danger" id="fDel">ลบนักเรียน</button>' : ''}
       <button class="btn primary" id="fSave">บันทึก</button></div>`);
-  let per = +s.perWeek;
+  let per = +s.perWeek, icon = s.icon || null;
+  const drawIcons = () => {
+    const nm = $('#fName').value.trim() || s.name || '?';
+    const cur = icon || {};
+    $('#fIcon').innerHTML =
+      `<button type="button" class="ic letter ${!icon ? 'on' : ''}" data-t="" style="background:${avatarColor(nm)}" title="ตัวอักษร">${esc(initial(nm))}</button>` +
+      (cur.type === 'img' ? `<button type="button" class="ic on" data-t="img" title="รูปภาพ"><img src="${esc(cur.v)}" alt=""></button>` : '') +
+      EMOJIS.map(e => `<button type="button" class="ic ${cur.type === 'emoji' && cur.v === e ? 'on' : ''}" data-t="emoji" data-v="${e}">${e}</button>`).join('');
+    $('#fIcon').querySelectorAll('.ic').forEach(b => b.onclick = () => {
+      if (b.dataset.t === 'emoji') icon = { type: 'emoji', v: b.dataset.v };
+      else if (b.dataset.t === '') icon = null;
+      drawIcons();
+    });
+  };
+  drawIcons();
+  $('#fName').addEventListener('input', () => { if (!icon) drawIcons(); });
+  $('#fImg').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try { icon = { type: 'img', v: await resizeImage(f) }; drawIcons(); } catch (err) { toast('เปิดรูปนี้ไม่ได้'); }
+  };
   sh.querySelectorAll('#fPer .chip').forEach(c => c.onclick = () => {
     per = +c.dataset.n; sh.querySelectorAll('#fPer .chip').forEach(x => x.classList.toggle('on', x === c));
     $('#fSize').value = per * db.settings.weeks; $('#fPrice').value = db.settings.prices[per];
@@ -350,7 +395,7 @@ function showStudentForm(id) {
   };
   $('#fSave').onclick = () => {
     const name = $('#fName').value.trim(); if (!name) { $('#fName').focus(); return; }
-    put('students', { ...s, id: id || uid(), name, note: $('#fNote').value.trim(), perWeek: per,
+    put('students', { ...s, id: id || uid(), name, note: $('#fNote').value.trim(), icon, perWeek: per,
       cycleSize: Math.max(1, +$('#fSize').value || per * db.settings.weeks), price: +$('#fPrice').value || 0,
       paused: id ? $('#fPaused').checked : false, createdAt: s.createdAt || Date.now() });
     closeSheet(); toast('บันทึกแล้ว');
