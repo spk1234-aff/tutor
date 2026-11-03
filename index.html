@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1e5aa8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="สอนพิเศษ">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>บันทึกสอนพิเศษ</title>
+<style>
+@font-face{font-family:"TH Sarabun New";src:url(fonts/thsarabunnew-webfont.ttf) format("truetype");font-weight:400}
+@font-face{font-family:"TH Sarabun New";src:url(fonts/thsarabunnew_bold-webfont.ttf) format("truetype");font-weight:700}
+:root{--blue:#1e5aa8;--ink:#1d2433;--mute:#6b7385;--line:#e3e7ef;--bg:#f4f6fa;
+  --red:#d93a3a;--redbg:#fdecec;--orange:#e07a10;--orangebg:#fff3e2;--yellow:#c9a100;--yellowbg:#fffbe0;--green:#1f9a5b}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"TH Sarabun New",sans-serif;font-size:21px;line-height:1.3;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);padding:calc(env(safe-area-inset-top) + 8px) 16px 8px;display:flex;align-items:center;gap:10px}
+header h1{font-size:28px;margin:0;flex:1;color:var(--blue)}
+#sync{font-size:17px;color:var(--mute);white-space:nowrap}
+.iconbtn{border:0;background:var(--bg);border-radius:12px;padding:6px 12px;cursor:pointer;font-size:20px}
+main{max-width:980px;margin:0 auto;padding:14px 14px 90px}
+.summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.pill{background:#fff;border:1px solid var(--line);border-radius:999px;padding:2px 14px;font-size:19px}
+.pill b{font-size:22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.card{background:#fff;border:1px solid var(--line);border-left:7px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.card.red{border-left-color:var(--red);background:linear-gradient(90deg,var(--redbg),#fff 60%)}
+.card.orange{border-left-color:var(--orange);background:linear-gradient(90deg,var(--orangebg),#fff 60%)}
+.card.yellow{border-left-color:var(--yellow);background:linear-gradient(90deg,var(--yellowbg),#fff 60%)}
+.card .top{display:flex;align-items:baseline;gap:8px;cursor:pointer}
+.card .name{font-size:27px;font-weight:700;flex:1}
+.card .count{font-size:30px;font-weight:700}
+.card .meta{color:var(--mute);font-size:18px}
+.bar{height:9px;background:var(--line);border-radius:9px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--blue);border-radius:9px}
+.card.orange .bar i{background:var(--orange)} .card.yellow .bar i{background:var(--yellow)}
+.alert{font-weight:700;font-size:20px}
+.red .alert.r{color:var(--red)} .alert.o{color:var(--orange)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:#fff;border-radius:12px;padding:6px 14px;cursor:pointer;font-size:20px}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700}
+.btn.orange{background:var(--orange);border-color:var(--orange);color:#fff;font-weight:700}
+.btn.red{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
+.btn.green{background:var(--green);border-color:var(--green);color:#fff;font-weight:700}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--red)}
+.btn:disabled{opacity:.45}
+.grow{flex:1}
+h2{font-size:24px;margin:22px 0 8px;color:var(--mute)}
+.empty{background:#fff;border:2px dashed var(--line);border-radius:16px;padding:30px;text-align:center;color:var(--mute)}
+dialog{border:0;border-radius:20px;padding:0;width:min(560px,94vw);max-height:90vh;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog::backdrop{background:rgba(20,30,50,.45)}
+.sheet{padding:16px 18px 18px;display:flex;flex-direction:column;gap:10px;overflow:auto;max-height:90vh}
+.sheet h3{margin:0;font-size:28px}
+label.f{display:flex;flex-direction:column;gap:2px;font-size:19px;color:var(--mute)}
+label.f input,label.f select,label.f textarea{color:var(--ink);font-size:22px;border:1px solid var(--line);border-radius:10px;padding:4px 10px;background:#fff}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1.5px solid var(--line);border-radius:999px;padding:4px 16px;cursor:pointer;background:#fff;font-size:21px}
+.chip.on{border-color:var(--blue);background:var(--blue);color:#fff;font-weight:700}
+table.s{width:100%;border-collapse:collapse;font-size:20px}
+table.s td,table.s th{padding:3px 6px;border-bottom:1px solid var(--line);text-align:left}
+table.s th{color:var(--mute);font-weight:400}
+.lock{color:var(--mute)}
+.inv{border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:4px}
+.inv.paid{background:#f2faf5}
+.tag{font-size:17px;border-radius:999px;padding:0 10px;display:inline-block}
+.tag.paid{background:#d9f2e4;color:var(--green)} .tag.issued{background:var(--redbg);color:var(--red)}
+#preview{max-width:100%;border:1px solid var(--line);border-radius:10px}
+.hint{font-size:18px;color:var(--mute)}
+.others{display:flex;flex-direction:column;gap:2px;max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px 10px}
+.toast{white-space:nowrap;position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1d2433;color:#fff;border-radius:999px;padding:6px 20px;z-index:99;font-size:20px;opacity:0;transition:.25s;pointer-events:none}
+.toast.on{opacity:1}
+@media (max-width:520px){header h1{font-size:24px}#sync{font-size:15px}.summary{gap:6px}.pill{font-size:17px;padding:0 10px}.pill b{font-size:19px}}
+.fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));border-radius:999px;padding:10px 22px;box-shadow:0 6px 20px rgba(30,90,168,.4)}
+</style>
+</head>
+<body>
+<header>
+  <h1>สอนพิเศษ</h1>
+  <span id="sync"></span>
+  <button class="iconbtn" id="btnSettings" title="ตั้งค่า">⚙️</button>
+</header>
+<main>
+  <div class="summary" id="summary"></div>
+  <div id="list"></div>
+</main>
+<button class="btn primary fab" id="btnAdd">+ นักเรียน</button>
+<dialog id="dlg"><div class="sheet" id="sheet"></div></dialog>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+/* ====================== ค่าคงที่ ====================== */
+// วางค่า firebaseConfig ตรงนี้เมื่อสร้างโปรเจกต์แล้ว (หรือวางในหน้า ตั้งค่า ก็ได้)
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB5jzaZiPGq0oYPqB9MCljXAKzs05rhPBg",
+  authDomain: "sirearth-tutor.firebaseapp.com",
+  projectId: "sirearth-tutor",
+  storageBucket: "sirearth-tutor.firebasestorage.app",
+  messagingSenderId: "472071806564",
+  appId: "1:472071806564:web:88e1ac2575318a320dc971",
+};
+const FIREBASE_VER = '10.12.2';
+const PROMPTPAY_NOTE = ['สแกนด้วยแอปธนาคาร', 'แล้วกรอกยอดเงินเอง'];
+
+const DEFAULT_SETTINGS = {
+  title: 'ใบแจ้งชำระค่าเรียนพิเศษ',
+  teacher: 'ครูศาสตราวุฒิ อาชนะชัย',
+  weeks: 4,
+  prices: {1: 1000, 2: 2000, 3: 3000},
+  bank: 'ธนาคารกสิกรไทย',
+  account: '051-2-69401-2',
+  accountName: 'นายศาสตราวุฒิ อาชนะชัย',
+  footer: 'ชำระแล้วรบกวนส่งสลิปทาง LINE ด้วยนะครับ ขอบคุณครับ',
+  hours: [1.5, 2],
+  nextNo: 1,
+};
+
+/* ====================== ตัวช่วย ====================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+const TH_DAYS = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const pad = n => String(n).padStart(2, '0');
+const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+const parseISO = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const thDate = (s, withDay = true) => { const d = parseISO(s); return `${withDay ? TH_DAYS[d.getDay()] + ' ' : ''}${d.getDate()} ${TH_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`; };
+const fmtH = h => `${+(+h).toFixed(2)} ชม.`;
+const money = n => (+n).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const money0 = n => (+n).toLocaleString('th-TH', {maximumFractionDigits: 2});
+const daysSince = iso => Math.floor((parseISO(todayISO()) - parseISO(iso)) / 864e5);
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), 2200); }
+
+/* ====================== ข้อมูล ====================== */
+const db = { students: {}, sessions: {}, invoices: {}, settings: {...DEFAULT_SETTINGS} };
+const LOCAL_KEY = 'tutor-local-v1';
+const MIRROR_KEY = 'tutor-cloud-mirror-v1';
+let cloud = null;   // { fs, fsdb, uid, auth, authApi }
+let syncState = 'local';
+
+function loadFrom(key) {
+  try {
+    const d = JSON.parse(localStorage.getItem(key) || 'null');
+    if (d) { db.students = d.students || {}; db.sessions = d.sessions || {}; db.invoices = d.invoices || {}; db.settings = {...DEFAULT_SETTINGS, ...(d.settings || {})}; }
+  } catch (e) { console.warn(e); }
+}
+function saveSnapshot() {
+  try { localStorage.setItem(cloud ? MIRROR_KEY : LOCAL_KEY, JSON.stringify(db)); } catch (e) { console.warn(e); }
+}
+function put(col, obj) {
+  db[col][obj.id] = obj; saveSnapshot(); render();
+  if (cloud) cloud.fs.setDoc(cloud.fs.doc(cloud.fsdb, 'users', cloud.uid, col, obj.id), obj).catch(e => toast('ซิงก์ไม่สำเร็จ: ' + e.code));
+}
+function del(col, id) {
+  delete db[col][id]; saveSnapshot(); render();
+  if (cloud) cloud.fs.deleteDoc(cloud.fs.doc(cloud.fsdb, 'users', cloud.uid, col, id)).catch(e => toast('ซิงก์ไม่สำเร็จ: ' + e.code));
+}
+function putSettings(patch) {
+  db.settings = {...db.settings, ...patch}; saveSnapshot(); render();
+  if (cloud) cloud.fs.setDoc(cloud.fs.doc(cloud.fsdb, 'users', cloud.uid, 'meta', 'settings'), db.settings).catch(e => toast('ซิงก์ไม่สำเร็จ: ' + e.code));
+}
+
+/* ====================== ตรรกะรอบ ====================== */
+const cycleSize = st => +st.cycleSize || (+st.perWeek * (+db.settings.weeks || 4));
+const studentSessions = sid => Object.values(db.sessions).filter(x => x.studentId === sid).sort((a, b) => a.date.localeCompare(b.date) || (a.createdAt || 0) - (b.createdAt || 0));
+const studentInvoices = sid => Object.values(db.invoices).filter(x => x.studentId === sid).sort((a, b) => (a.round || 0) - (b.round || 0));
+function billedIds(sid) { const s = new Set(); studentInvoices(sid).forEach(iv => (iv.sessionIds || []).forEach(id => s.add(id))); return s; }
+function unbilled(sid) { const b = billedIds(sid); return studentSessions(sid).filter(x => !b.has(x.id)); }
+function status(st) {
+  const n = cycleSize(st), ub = unbilled(st.id), unpaid = studentInvoices(st.id).filter(i => i.status !== 'paid');
+  let level = 0; // 0 ปกติ 1 เหลือ 1 คาบ 2 ครบรอบ 3 ค้างชำระ
+  if (ub.length >= n - 1 && n > 1) level = 1;
+  if (ub.length >= n) level = 2;
+  if (unpaid.length) level = Math.max(level, 3);
+  return { n, ub, unpaid, level, round: studentInvoices(st.id).length + 1 };
+}
+
+/* ====================== หน้าหลัก ====================== */
+function render() {
+  const sts = Object.values(db.students);
+  const active = sts.filter(s => !s.paused), paused = sts.filter(s => s.paused);
+  const withS = active.map(s => ({ s, st: status(s) }))
+    .sort((a, b) => b.st.level - a.st.level || (b.st.ub.length / b.st.n) - (a.st.ub.length / a.st.n) || a.s.name.localeCompare(b.s.name, 'th'));
+  const owe = withS.filter(x => x.st.level === 3), due = withS.filter(x => x.st.ub.length >= x.st.n);
+  const oweSum = owe.reduce((t, x) => t + x.st.unpaid.reduce((a, i) => a + (+i.amount), 0), 0);
+  $('#summary').innerHTML = `
+    <span class="pill">นักเรียน <b>${active.length}</b> คน</span>
+    <span class="pill" style="color:var(--orange)">ครบรอบ รอออกใบแจ้ง <b>${due.length}</b></span>
+    <span class="pill" style="color:var(--red)">รอชำระ <b>${owe.length}</b> คน · ${money0(oweSum)} บาท</span>`;
+  if (!sts.length) {
+    $('#list').innerHTML = `<div class="empty">ยังไม่มีนักเรียน<br>กดปุ่ม <b>+ นักเรียน</b> มุมขวาล่างเพื่อเริ่มต้น</div>`;
+  } else {
+    $('#list').innerHTML = `<div class="grid">${withS.map(x => cardHTML(x.s, x.st)).join('')}</div>` +
+      (paused.length ? `<h2>พักเรียน</h2><div class="grid">${paused.map(s => cardHTML(s, status(s))).join('')}</div>` : '');
+  }
+  document.querySelectorAll('[data-act]').forEach(b => b.onclick = e => { e.stopPropagation(); ACTIONS[b.dataset.act](b.dataset.id, b.dataset.x); });
+  if ('setAppBadge' in navigator) { const c = owe.length + due.length; (c ? navigator.setAppBadge(c) : navigator.clearAppBadge()).catch(() => {}); }
+  if (openDetail && $('#dlg').open) showDetail(openDetail, true);
+}
+function cardHTML(s, st) {
+  const cls = s.paused ? '' : ['', 'yellow', 'orange', 'red'][st.level];
+  const shown = Math.min(st.ub.length, st.n), extra = st.ub.length - st.n;
+  const last = studentSessions(s.id).slice(-1)[0];
+  let alerts = '';
+  st.unpaid.forEach(iv => {
+    const d = daysSince(iv.issuedAt);
+    alerts += `<div class="alert r" style="color:var(--red)">รอชำระรอบที่ ${iv.round} · ${money0(iv.amount)} บาท · ${d === 0 ? 'ส่งวันนี้' : `ค้าง ${d} วัน`}</div>
+      <div class="row"><button class="btn green" data-act="paid" data-id="${iv.id}">รับเงินแล้ว</button><button class="btn" data-act="viewInv" data-id="${iv.id}">ดูใบแจ้ง</button></div>`;
+  });
+  if (st.ub.length >= st.n) alerts += `<div class="alert o">ครบรอบที่ ${st.round} แล้ว — ถึงเวลาเก็บเงิน${extra > 0 ? ` (เกินมา ${extra} คาบ จะไปรอบถัดไป)` : ''}</div>`;
+  else if (st.level >= 1 && st.ub.length === st.n - 1) alerts += `<div class="alert" style="color:var(--yellow)">อีก 1 คาบครบรอบ</div>`;
+  return `<div class="card ${cls}">
+    <div class="top" data-act="detail" data-id="${s.id}">
+      <div class="name">${esc(s.name)}</div><div class="count">${shown}<span style="font-size:20px;color:var(--mute)">/${st.n}</span></div>
+    </div>
+    <div class="bar"><i style="width:${Math.min(100, shown / st.n * 100)}%"></i></div>
+    <div class="meta">รอบที่ ${st.round} · ${s.perWeek} คาบ/สัปดาห์ · ${money0(s.price)} บาท/รอบ${last ? ` · ล่าสุด ${thDate(last.date)}` : ''}</div>
+    ${alerts}
+    <div class="row">
+      <button class="btn primary grow" data-act="log" data-id="${s.id}">+ บันทึกคาบ</button>
+      ${st.ub.length >= st.n ? `<button class="btn orange grow" data-act="issue" data-id="${s.id}">ออกใบแจ้ง</button>` : ''}
+      <button class="btn" data-act="detail" data-id="${s.id}">รายละเอียด</button>
+    </div>
+  </div>`;
+}
+
+/* ====================== กล่องโต้ตอบ ====================== */
+let openDetail = null;
+function openSheet(html, onClose) {
+  const dlg = $('#dlg'); openDetail = null; $('#sheet').innerHTML = html;
+  if (!dlg.open) dlg.showModal();
+  dlg.onclose = () => { openDetail = null; onClose && onClose(); };
+  return $('#sheet');
+}
+const closeSheet = () => $('#dlg').close();
+$('#dlg').addEventListener('click', e => { if (e.target === $('#dlg')) closeSheet(); });
+
+const ACTIONS = {
+  detail: id => showDetail(id),
+  log: id => showLog(id),
+  issue: id => showIssue(id),
+  paid: id => markPaid(id),
+  viewInv: id => showInvoice(id),
+};
+
+/* ---------- เพิ่ม/แก้ไขนักเรียน ---------- */
+function showStudentForm(id) {
+  const s = id ? db.students[id] : { perWeek: 2 };
+  const sh = openSheet(`
+    <h3>${id ? 'แก้ไขข้อมูลนักเรียน' : 'เพิ่มนักเรียน'}</h3>
+    <label class="f">ชื่อนักเรียน (จะแสดงบนใบแจ้ง)<input id="fName" value="${esc(s.name)}" placeholder="เช่น น้องเอ" autocomplete="off"></label>
+    <label class="f">ชื่อผู้ปกครอง / หมายเหตุ (ไม่แสดงบนใบแจ้ง)<input id="fNote" value="${esc(s.note)}" autocomplete="off"></label>
+    <div class="f" style="color:var(--mute);font-size:19px">เรียนสัปดาห์ละ</div>
+    <div class="chips" id="fPer">${[1, 2, 3].map(n => `<span class="chip ${+s.perWeek === n ? 'on' : ''}" data-n="${n}">${n} คาบ</span>`).join('')}</div>
+    <div class="row">
+      <label class="f grow">จำนวนคาบต่อรอบ<input id="fSize" type="number" inputmode="numeric" min="1" value="${s.cycleSize || +s.perWeek * db.settings.weeks}"></label>
+      <label class="f grow">ราคาต่อรอบ (บาท)<input id="fPrice" type="number" inputmode="decimal" min="0" value="${s.price ?? db.settings.prices[s.perWeek]}"></label>
+    </div>
+    <div class="hint">ค่าเริ่มต้นตั้งได้ในหน้าตั้งค่า (${db.settings.weeks} สัปดาห์ต่อรอบ) · ถ้าเปลี่ยนราคา จะมีผลกับใบแจ้งที่ออกหลังจากนี้</div>
+    ${id ? `<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="fPaused" ${s.paused ? 'checked' : ''}> พักเรียน (ย้ายการ์ดไปไว้ด้านล่าง)</label>` : ''}
+    <div class="row"><button class="btn ghost" id="fCancel">ยกเลิก</button><span class="grow"></span>
+      ${id ? '<button class="btn danger" id="fDel">ลบนักเรียน</button>' : ''}
+      <button class="btn primary" id="fSave">บันทึก</button></div>`);
+  let per = +s.perWeek;
+  sh.querySelectorAll('#fPer .chip').forEach(c => c.onclick = () => {
+    per = +c.dataset.n; sh.querySelectorAll('#fPer .chip').forEach(x => x.classList.toggle('on', x === c));
+    $('#fSize').value = per * db.settings.weeks; $('#fPrice').value = db.settings.prices[per];
+  });
+  $('#fCancel').onclick = closeSheet;
+  if (id) $('#fDel').onclick = () => {
+    const n = studentSessions(id).length;
+    if (!confirm(`ลบ "${s.name}" พร้อมประวัติ ${n} คาบ และใบแจ้งทั้งหมด?\nลบแล้วกู้คืนไม่ได้`)) return;
+    studentSessions(id).forEach(x => del('sessions', x.id)); studentInvoices(id).forEach(x => del('invoices', x.id)); del('students', id);
+    closeSheet();
+  };
+  $('#fSave').onclick = () => {
+    const name = $('#fName').value.trim(); if (!name) { $('#fName').focus(); return; }
+    put('students', { ...s, id: id || uid(), name, note: $('#fNote').value.trim(), perWeek: per,
+      cycleSize: Math.max(1, +$('#fSize').value || per * db.settings.weeks), price: +$('#fPrice').value || 0,
+      paused: id ? $('#fPaused').checked : false, createdAt: s.createdAt || Date.now() });
+    closeSheet(); toast('บันทึกแล้ว');
+  };
+  if (!id) setTimeout(() => $('#fName').focus(), 50);
+}
+
+/* ---------- บันทึกคาบ ---------- */
+function showLog(sid, sessionId) {
+  const st = db.students[sid], ses = sessionId ? db.sessions[sessionId] : null;
+  const hours = db.settings.hours || [1.5, 2];
+  let h = ses ? +ses.hours : (st.lastHours || hours[0]);
+  const others = Object.values(db.students).filter(x => x.id !== sid && !x.paused).sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  const sh = openSheet(`
+    <h3>${ses ? 'แก้ไขคาบ' : 'บันทึกคาบ'} · ${esc(st.name)}</h3>
+    <label class="f">วันที่สอน<input type="date" id="lDate" value="${ses ? ses.date : todayISO()}" max="${todayISO()}"></label>
+    <div class="f" style="color:var(--mute);font-size:19px">ระยะเวลา</div>
+    <div class="chips" id="lH">${hours.map(x => `<span class="chip ${x === h ? 'on' : ''}" data-h="${x}">${fmtH(x)}</span>`).join('')}
+      <input id="lHx" type="number" step="0.25" min="0.25" inputmode="decimal" placeholder="อื่น ๆ" style="width:90px;border:1.5px solid var(--line);border-radius:999px;padding:2px 12px" value="${hours.includes(h) ? '' : h}"></div>
+    ${!ses && others.length ? `<details><summary style="cursor:pointer;color:var(--blue)">สอนเป็นกลุ่ม? เลือกคนที่เรียนด้วยกัน</summary>
+      <div class="others">${others.map(o => `<label><input type="checkbox" class="lO" value="${o.id}"> ${esc(o.name)}</label>`).join('')}</div></details>` : ''}
+    <div class="row"><button class="btn ghost" id="lCancel">ยกเลิก</button><span class="grow"></span>
+      ${ses ? '<button class="btn danger" id="lDel">ลบคาบนี้</button>' : ''}<button class="btn primary" id="lSave">บันทึก</button></div>`, () => { if (back) showDetail(sid); });
+  let back = !!sessionId;
+  sh.querySelectorAll('#lH .chip').forEach(c => c.onclick = () => { h = +c.dataset.h; $('#lHx').value = ''; sh.querySelectorAll('#lH .chip').forEach(x => x.classList.toggle('on', x === c)); });
+  $('#lHx').oninput = () => { if (+$('#lHx').value > 0) { h = +$('#lHx').value; sh.querySelectorAll('#lH .chip').forEach(x => x.classList.remove('on')); } };
+  $('#lCancel').onclick = closeSheet;
+  if (ses) $('#lDel').onclick = () => { if (confirm(`ลบคาบวันที่ ${thDate(ses.date)}?`)) { del('sessions', ses.id); closeSheet(); } };
+  $('#lSave').onclick = () => {
+    const date = $('#lDate').value; if (!date) return;
+    if (!(h > 0)) { toast('ใส่ระยะเวลา'); return; }
+    const ids = [sid, ...[...sh.querySelectorAll('.lO:checked')].map(x => x.value)];
+    if (ses) put('sessions', { ...ses, date, hours: h });
+    else ids.forEach(id => {
+      const dup = studentSessions(id).some(x => x.date === date);
+      if (dup && !confirm(`${db.students[id].name} มีบันทึกวันที่ ${thDate(date)} อยู่แล้ว บันทึกซ้ำอีกคาบไหม?`)) return;
+      put('sessions', { id: uid(), studentId: id, date, hours: h, createdAt: Date.now() });
+      if (db.students[id].lastHours !== h) put('students', { ...db.students[id], lastHours: h });
+    });
+    closeSheet();
+    if (!ses) { const s2 = status(db.students[sid]); toast(s2.ub.length >= s2.n ? `ครบรอบแล้ว! ออกใบแจ้งได้เลย` : `บันทึกแล้ว ${s2.ub.length}/${s2.n}`); }
+  };
+}
+
+/* ---------- รายละเอียดนักเรียน ---------- */
+function showDetail(sid, rerender) {
+  const s = db.students[sid]; if (!s) { closeSheet(); return; }
+  const st = status(s), invs = studentInvoices(sid).slice().reverse();
+  const cur = st.ub;
+  const html = `
+    <div class="row" style="align-items:center"><h3 class="grow">${esc(s.name)}</h3><button class="btn" data-d="edit">แก้ไข</button><button class="btn ghost" data-d="close">ปิด</button></div>
+    <div class="meta" style="color:var(--mute)">${s.perWeek} คาบ/สัปดาห์ · รอบละ ${st.n} คาบ · ${money0(s.price)} บาท${s.note ? ` · ${esc(s.note)}` : ''}</div>
+    <div style="font-weight:700;font-size:23px">รอบที่ ${st.round} — สอนแล้ว ${cur.length}/${st.n} คาบ</div>
+    ${cur.length ? `<table class="s"><tr><th>#</th><th>วันที่</th><th>เวลา</th><th></th></tr>
+      ${cur.map((x, i) => `<tr ${i >= st.n ? 'style="color:var(--mute)"' : ''}><td>${i + 1}</td><td>${thDate(x.date)}</td><td>${fmtH(x.hours)}</td><td style="text-align:right"><button class="btn" style="padding:0 10px" data-d="edS" data-x="${x.id}">แก้</button></td></tr>`).join('')}
+    </table>` : '<div class="hint">ยังไม่มีคาบในรอบนี้</div>'}
+    <div class="row"><button class="btn primary" data-d="log">+ บันทึกคาบ</button>
+      ${cur.length ? `<button class="btn ${cur.length >= st.n ? 'orange' : ''}" data-d="issue">${cur.length >= st.n ? 'ออกใบแจ้ง' : 'ออกใบแจ้งก่อนครบรอบ'}</button>` : ''}</div>
+    <h2 style="margin-top:8px">ใบแจ้งที่ออกแล้ว</h2>
+    ${invs.length ? invs.map(iv => `<div class="inv ${iv.status === 'paid' ? 'paid' : ''}">
+        <div class="row" style="align-items:center"><b class="grow">รอบที่ ${iv.round} · ${money0(iv.amount)} บาท</b>
+          <span class="tag ${iv.status}">${iv.status === 'paid' ? `🔒 รับเงินแล้ว ${thDate(iv.paidAt, false)}` : (daysSince(iv.issuedAt) ? `รอชำระ ${daysSince(iv.issuedAt)} วัน` : 'รอชำระ · ส่งวันนี้')}</span></div>
+        <div class="hint">เลขที่ ${esc(iv.no)} · ออก ${thDate(iv.issuedAt, false)} · ${iv.sessionIds.length} คาบ (${rangeText(iv)})</div>
+        <div class="row"><button class="btn" data-d="view" data-x="${iv.id}">ดูใบแจ้ง</button>
+          ${iv.status === 'paid' ? `<button class="btn ghost" data-d="unpaid" data-x="${iv.id}">ยกเลิกการรับเงิน</button>`
+            : `<button class="btn green" data-d="paid" data-x="${iv.id}">รับเงินแล้ว</button><button class="btn danger" data-d="cancel" data-x="${iv.id}">ยกเลิกใบแจ้ง</button>`}</div>
+      </div>`).join('') : '<div class="hint">ยังไม่มี</div>'}`;
+  const sh = rerender ? (($('#sheet').innerHTML = html), $('#sheet')) : openSheet(html);
+  openDetail = sid;
+  sh.querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
+    const x = b.dataset.x;
+    ({
+      close: closeSheet,
+      edit: () => showStudentForm(sid),
+      log: () => showLog(sid),
+      edS: () => showLog(sid, x),
+      issue: () => showIssue(sid),
+      view: () => showInvoice(x),
+      paid: () => markPaid(x),
+      unpaid: () => { if (confirm('ยกเลิกสถานะรับเงินแล้ว ของใบแจ้งนี้?')) put('invoices', { ...db.invoices[x], status: 'issued', paidAt: null }); },
+      cancel: () => { if (confirm('ยกเลิกใบแจ้งนี้? คาบในใบแจ้งจะกลับมาเป็นคาบที่ยังไม่เก็บเงิน')) del('invoices', x); },
+    })[b.dataset.d]();
+  });
+}
+function rangeText(iv) {
+  const ds = iv.sessionIds.map(id => db.sessions[id]?.date || iv.snap?.find(x => x.id === id)?.date).filter(Boolean).sort();
+  return ds.length ? `${thDate(ds[0], false)} – ${thDate(ds[ds.length - 1], false)}` : '';
+}
+
+/* ---------- ออกใบแจ้ง ---------- */
+function showIssue(sid) {
+  const s = db.students[sid], st = status(s);
+  const take = st.ub.slice(0, st.n);
+  const full = take.length >= st.n;
+  const amount = full ? s.price : Math.round(s.price / st.n * take.length);
+  const sh = openSheet(`
+    <h3>ออกใบแจ้ง · ${esc(s.name)} รอบที่ ${st.round}</h3>
+    <div class="hint">${full ? `ครบ ${st.n} คาบ` : `ยังไม่ครบรอบ (${take.length}/${st.n} คาบ) ยอดคิดตามสัดส่วน แก้ได้`}</div>
+    <table class="s">${take.map((x, i) => `<tr><td>${i + 1}</td><td>${thDate(x.date)}</td><td>${fmtH(x.hours)}</td></tr>`).join('')}</table>
+    <label class="f">ยอดที่ต้องชำระ (บาท)<input id="iAmt" type="number" inputmode="decimal" value="${amount}"></label>
+    <div class="row"><button class="btn ghost" id="iCancel">ยกเลิก</button><span class="grow"></span><button class="btn orange" id="iGo">ออกใบแจ้ง</button></div>`);
+  $('#iCancel').onclick = closeSheet;
+  $('#iGo').onclick = () => {
+    const amt = +$('#iAmt').value; if (!(amt >= 0)) return;
+    const y = new Date().getFullYear() + 543, no = `${y}-${String(db.settings.nextNo || 1).padStart(4, '0')}`;
+    const iv = { id: uid(), studentId: sid, round: st.round, no, amount: amt, sessionIds: take.map(x => x.id),
+      snap: take.map(x => ({ id: x.id, date: x.date, hours: x.hours })), studentName: s.name, perWeek: s.perWeek,
+      issuedAt: todayISO(), status: 'issued', createdAt: Date.now() };
+    putSettings({ nextNo: (db.settings.nextNo || 1) + 1 });
+    put('invoices', iv);
+    showInvoice(iv.id);
+  };
+}
+function markPaid(ivId) {
+  const iv = db.invoices[ivId];
+  if (!confirm(`ยืนยันรับเงิน ${money0(iv.amount)} บาท จาก ${iv.studentName} (รอบที่ ${iv.round})?\nคาบในรอบนี้จะถูกล็อก`)) return;
+  put('invoices', { ...iv, status: 'paid', paidAt: todayISO() });
+  toast('บันทึกรับเงินแล้ว 🔒');
+}
+
+/* ---------- ภาพใบแจ้ง ---------- */
+let qrImg = null;
+async function ensureAssets() {
+  await Promise.all([document.fonts.load('700 40px "TH Sarabun New"'), document.fonts.load('400 40px "TH Sarabun New"')]);
+  if (!qrImg) { qrImg = new Image(); qrImg.src = 'qr.png'; await qrImg.decode(); }
+}
+async function drawInvoice(iv) {
+  await ensureAssets();
+  const S = db.settings, rows = (iv.snap || []).slice().sort((a, b) => a.date.localeCompare(b.date));
+  const W = 1080, P = 70, rowH = 58, F = (w, s) => `${w} ${s}px "TH Sarabun New"`;
+  const H = 520 + rows.length * rowH + 760;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#1e5aa8'; g.fillRect(0, 0, W, 16);
+  const text = (t, x, y, font, color = '#1d2433', align = 'left') => { g.font = font; g.fillStyle = color; g.textAlign = align; g.fillText(t, x, y); };
+  let y = 115;
+  text(S.title, W / 2, y, F(700, 64), '#1e5aa8', 'center'); y += 50;
+  if (S.teacher) text(S.teacher, W / 2, y, F(400, 38), '#6b7385', 'center');
+  y += 70;
+  text(`เลขที่ ${iv.no}`, P, y, F(400, 38)); text(`วันที่ ${thDate(iv.issuedAt, false)}`, W - P, y, F(400, 38), '#1d2433', 'right'); y += 60;
+  text('นักเรียน', P, y, F(400, 42), '#6b7385'); text(iv.studentName, P + 155, y, F(700, 48));
+  text(`รอบที่ ${iv.round} · ${iv.perWeek} คาบ/สัปดาห์`, W - P, y, F(400, 40), '#1d2433', 'right'); y += 40;
+  // ตาราง
+  g.fillStyle = '#eef3fb'; g.fillRect(P, y, W - 2 * P, rowH);
+  const cx = [P + 30, P + 160, W - P - 30];
+  text('คาบที่', cx[0], y + 42, F(700, 38)); text('วันที่เรียน', cx[1], y + 42, F(700, 38)); text('เวลาเรียน', cx[2], y + 42, F(700, 38), '#1d2433', 'right');
+  y += rowH;
+  let tot = 0;
+  rows.forEach((r, i) => {
+    tot += +r.hours;
+    text(String(i + 1), cx[0] + 30, y + 42, F(400, 40), '#1d2433', 'center');
+    text(thDate(r.date), cx[1], y + 42, F(400, 40));
+    text(fmtH(r.hours), cx[2], y + 42, F(400, 40), '#1d2433', 'right');
+    g.strokeStyle = '#e3e7ef'; g.lineWidth = 2; g.beginPath(); g.moveTo(P, y + rowH); g.lineTo(W - P, y + rowH); g.stroke();
+    y += rowH;
+  });
+  y += 50;
+  text(`รวม ${rows.length} คาบ · ${fmtH(tot)}`, W - P, y, F(700, 40), '#1d2433', 'right'); y += 30;
+  // กล่องยอดเงิน
+  g.fillStyle = '#fff3e2'; roundRect(g, P, y, W - 2 * P, 120, 22); g.fill();
+  text('ยอดที่ต้องชำระ', P + 40, y + 78, F(700, 46), '#e07a10');
+  text(`${money(iv.amount)} บาท`, W - P - 40, y + 82, F(700, 72), '#d93a3a', 'right');
+  y += 165;
+  // QR + บัญชี
+  const q = 340; g.imageSmoothingEnabled = false;
+  g.drawImage(qrImg, P + 10, y, q, q);
+  text('PromptPay พร้อมเพย์', P + 10 + q / 2, y + q + 42, F(700, 36), '#1e5aa8', 'center');
+  PROMPTPAY_NOTE.forEach((t, i) => text(t, P + 10 + q / 2, y + q + 82 + i * 40, F(400, 30), '#6b7385', 'center'));
+  const bx = P + q + 60; let by = y + 40;
+  text('หรือโอนเข้าบัญชี', bx, by, F(400, 38), '#6b7385'); by += 58;
+  text(S.bank, bx, by, F(700, 44)); by += 70;
+  text('เลขที่บัญชี', bx, by, F(400, 36), '#6b7385'); by += 56;
+  text(S.account, bx, by, F(700, 60), '#1e5aa8'); by += 66;
+  text('ชื่อบัญชี', bx, by, F(400, 36), '#6b7385'); by += 52;
+  text(S.accountName, bx, by, F(700, 44));
+  y += q + 180;
+  if (S.footer) y = wrap(g, S.footer, W / 2, y, W - 2 * P, 46, F(400, 36), '#6b7385');
+  const out = document.createElement('canvas'); out.width = W; out.height = Math.min(H, y + 50);
+  out.getContext('2d').drawImage(c, 0, 0);
+  return out;
+}
+function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function wrap(g, t, x, y, maxW, lh, font, color) {
+  g.font = font; g.fillStyle = color; g.textAlign = 'center';
+  // ตัดคำแบบง่าย: ตามช่องว่าง
+  let line = '';
+  for (const w of t.split(' ')) { const tst = line ? line + ' ' + w : w; if (g.measureText(tst).width > maxW && line) { g.fillText(line, x, y); y += lh; line = w; } else line = tst; }
+  if (line) g.fillText(line, x, y);
+  return y;
+}
+async function showInvoice(ivId) {
+  const iv = db.invoices[ivId]; if (!iv) return;
+  const sid = iv.studentId;
+  const sh = openSheet(`<div class="row" style="align-items:center"><h3 class="grow">ใบแจ้ง ${esc(iv.studentName)} รอบที่ ${iv.round}</h3><button class="btn ghost" id="vClose">ปิด</button></div>
+    <div class="hint">กำลังสร้างรูป…</div>`);
+  $('#vClose').onclick = closeSheet;
+  const canvas = await drawInvoice(iv);
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+  const url = URL.createObjectURL(blob);
+  const fname = `ใบแจ้ง-${iv.studentName}-รอบ${iv.round}.png`;
+  sh.innerHTML = `<div class="row" style="align-items:center"><h3 class="grow">ใบแจ้ง ${esc(iv.studentName)} รอบที่ ${iv.round}</h3><button class="btn ghost" id="vClose">ปิด</button></div>
+    <img id="preview" src="${url}" alt="ใบแจ้ง">
+    <div class="row">
+      <button class="btn primary grow" id="vShare">แชร์ / บันทึกรูป</button>
+      <button class="btn" id="vCopy">คัดลอกรูป</button>
+      <a class="btn" id="vDl" href="${url}" download="${esc(fname)}">ดาวน์โหลด</a>
+    </div>
+    <div class="hint">iPhone/iPad: กด แชร์ แล้วเลือก LINE หรือ “บันทึกรูปภาพ” · Mac: กด คัดลอกรูป แล้ววางในแชท LINE</div>
+    ${iv.status !== 'paid' ? `<button class="btn green" id="vPaid">รับเงินแล้ว</button>` : `<div class="tag paid" style="align-self:flex-start">🔒 รับเงินแล้ว ${thDate(iv.paidAt, false)}</div>`}`;
+  $('#vClose').onclick = closeSheet;
+  $('#vShare').onclick = async () => {
+    const file = new File([blob], fname, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file] }); } catch (e) {} }
+    else $('#vDl').click();
+  };
+  $('#vCopy').onclick = async () => {
+    try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); toast('คัดลอกรูปแล้ว'); }
+    catch (e) { toast('เบราว์เซอร์นี้คัดลอกรูปไม่ได้ ใช้ดาวน์โหลดแทน'); }
+  };
+  if ($('#vPaid')) $('#vPaid').onclick = () => { markPaid(ivId); if (db.invoices[ivId].status === 'paid') showDetail(sid); };
+}
+
+/* ---------- ตั้งค่า ---------- */
+function showSettings() {
+  const S = db.settings, cfgStr = localStorage.getItem('tutor-fbcfg') || '';
+  const sh = openSheet(`
+    <div class="row" style="align-items:center"><h3 class="grow">ตั้งค่า</h3><button class="btn ghost" id="sClose">ปิด</button></div>
+    <h2 style="margin:4px 0 0">ใบแจ้งชำระ</h2>
+    <label class="f">หัวเอกสาร<input id="sTitle" value="${esc(S.title)}"></label>
+    <label class="f">บรรทัดใต้หัว (ชื่อผู้สอน)<input id="sTeacher" value="${esc(S.teacher)}"></label>
+    <label class="f">ธนาคาร<input id="sBank" value="${esc(S.bank)}"></label>
+    <div class="row"><label class="f grow">เลขที่บัญชี<input id="sAcc" value="${esc(S.account)}"></label>
+      <label class="f grow">ชื่อบัญชี<input id="sAccName" value="${esc(S.accountName)}"></label></div>
+    <label class="f">ข้อความท้ายใบแจ้ง<input id="sFooter" value="${esc(S.footer)}"></label>
+    <h2 style="margin:4px 0 0">ค่าเริ่มต้นของนักเรียนใหม่</h2>
+    <div class="row"><label class="f grow">สัปดาห์ต่อรอบ<input id="sWeeks" type="number" min="1" value="${S.weeks}"></label>
+      ${[1, 2, 3].map(n => `<label class="f grow">${n} คาบ/สัปดาห์ (บาท)<input id="sP${n}" type="number" value="${S.prices[n]}"></label>`).join('')}</div>
+    <label class="f">ตัวเลือกระยะเวลา (ชม. คั่นด้วย ,)<input id="sHours" value="${(S.hours || []).join(', ')}"></label>
+    <label class="f">เลขที่ใบแจ้งถัดไป<input id="sNo" type="number" min="1" value="${S.nextNo}"></label>
+    <button class="btn primary" id="sSave">บันทึกการตั้งค่า</button>
+
+    <h2 style="margin:10px 0 0">ซิงก์ข้ามเครื่อง (Firebase)</h2>
+    <div id="cloudBox"></div>
+
+    <h2 style="margin:10px 0 0">สำรองข้อมูล</h2>
+    <div class="row"><button class="btn" id="sExport">ส่งออกไฟล์สำรอง (.json)</button>
+      <label class="btn">นำเข้าไฟล์สำรอง<input type="file" id="sImport" accept=".json,application/json" hidden></label></div>
+    <div class="hint">เวอร์ชัน 1.0</div>`);
+  $('#sClose').onclick = closeSheet;
+  $('#sSave').onclick = () => {
+    putSettings({ title: $('#sTitle').value, teacher: $('#sTeacher').value, bank: $('#sBank').value, account: $('#sAcc').value,
+      accountName: $('#sAccName').value, footer: $('#sFooter').value, weeks: Math.max(1, +$('#sWeeks').value || 4),
+      prices: { 1: +$('#sP1').value || 0, 2: +$('#sP2').value || 0, 3: +$('#sP3').value || 0 },
+      hours: $('#sHours').value.split(/[ ,]+/).map(Number).filter(x => x > 0), nextNo: Math.max(1, +$('#sNo').value || 1) });
+    toast('บันทึกการตั้งค่าแล้ว');
+  };
+  $('#sExport').onclick = () => {
+    const b = new Blob([JSON.stringify(db, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `สอนพิเศษ-สำรอง-${todayISO()}.json`; a.click();
+  };
+  $('#sImport').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const d = JSON.parse(await f.text());
+      if (!d.students || !confirm(`นำเข้า นักเรียน ${Object.keys(d.students).length} คน, คาบ ${Object.keys(d.sessions || {}).length} คาบ?\nข้อมูลที่ id ซ้ำจะถูกแทนที่`)) return;
+      for (const col of ['students', 'sessions', 'invoices']) Object.values(d[col] || {}).forEach(o => put(col, o));
+      if (d.settings) putSettings(d.settings);
+      toast('นำเข้าแล้ว');
+    } catch (err) { alert('ไฟล์ไม่ถูกต้อง'); }
+  };
+  renderCloudBox();
+}
+function renderCloudBox() {
+  const box = $('#cloudBox'); if (!box) return;
+  const cfg = FIREBASE_CONFIG || readCfg();
+  if (cloud) {
+    box.innerHTML = `<div>เชื่อมต่อแล้ว: <b>${esc(cloud.email)}</b></div><div class="hint">ข้อมูลซิงก์อัตโนมัติทุกเครื่องที่ล็อกอินบัญชีนี้</div>
+      <button class="btn" id="cOut">ออกจากระบบ</button>`;
+    $('#cOut').onclick = async () => { if (confirm('ออกจากระบบ? เครื่องนี้จะกลับไปใช้ข้อมูลที่เก็บในเครื่อง')) { await cloud.authApi.signOut(cloud.auth); location.reload(); } };
+    return;
+  }
+  if (!cfg) {
+    box.innerHTML = `<div class="hint">ตอนนี้ข้อมูลเก็บในเครื่องนี้เท่านั้น วาง firebaseConfig จาก Firebase Console เพื่อเปิดการซิงก์</div>
+      <label class="f">firebaseConfig<textarea id="cCfg" rows="5" placeholder="const firebaseConfig = { apiKey: ... }"></textarea></label>
+      <button class="btn primary" id="cSaveCfg">บันทึกค่า Firebase</button>`;
+    $('#cSaveCfg').onclick = () => {
+      const t = $('#cCfg').value, o = {};
+      for (const k of ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId']) { const m = t.match(new RegExp(k + `["']?\\s*:\\s*["']([^"']+)["']`)); if (m) o[k] = m[1]; }
+      if (!o.apiKey || !o.projectId) { alert('อ่านค่าไม่ได้ ต้องมี apiKey และ projectId'); return; }
+      localStorage.setItem('tutor-fbcfg', JSON.stringify(o)); location.reload();
+    };
+    return;
+  }
+  box.innerHTML = `<div class="hint">${syncState === 'error' ? 'โหลด Firebase ไม่สำเร็จ (ตรวจอินเทอร์เน็ต)' : 'ล็อกอินด้วยอีเมลที่สร้างไว้ใน Firebase Authentication'}</div>
+    <label class="f">อีเมล<input id="cEmail" type="email" autocomplete="username"></label>
+    <label class="f">รหัสผ่าน<input id="cPass" type="password" autocomplete="current-password"></label>
+    <div class="row"><button class="btn primary" id="cIn">เข้าสู่ระบบ</button><button class="btn" id="cNew">สร้างบัญชีใหม่</button>
+      ${FIREBASE_CONFIG ? '' : '<button class="btn danger" id="cClr">ล้างค่า Firebase</button>'}</div>`;
+  const go = async create => {
+    try {
+      const api = await loadFirebase(); if (!api) return;
+      const f = create ? api.authApi.createUserWithEmailAndPassword : api.authApi.signInWithEmailAndPassword;
+      await f(api.auth, $('#cEmail').value.trim(), $('#cPass').value);
+    } catch (e) { alert('เข้าสู่ระบบไม่สำเร็จ: ' + (e.code || e.message)); }
+  };
+  $('#cIn').onclick = () => go(false); $('#cNew').onclick = () => go(true);
+  if ($('#cClr')) $('#cClr').onclick = () => { localStorage.removeItem('tutor-fbcfg'); location.reload(); };
+}
+const readCfg = () => { try { return JSON.parse(localStorage.getItem('tutor-fbcfg') || 'null'); } catch { return null; } };
+
+/* ====================== Firebase ====================== */
+let fbApi = null;
+async function loadFirebase() {
+  if (fbApi) return fbApi;
+  const cfg = FIREBASE_CONFIG || readCfg(); if (!cfg) return null;
+  const base = `https://www.gstatic.com/firebasejs/${FIREBASE_VER}/`;
+  const [app, authApi, fs] = await Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')]);
+  const a = app.initializeApp(cfg);
+  const auth = authApi.getAuth(a);
+  let fsdb;
+  try { fsdb = fs.initializeFirestore(a, { localCache: fs.persistentLocalCache({ tabManager: fs.persistentMultipleTabManager() }) }); }
+  catch (e) { fsdb = fs.getFirestore(a); }
+  fbApi = { auth, authApi, fs, fsdb };
+  authApi.onAuthStateChanged(auth, user => { if (user) startCloud(user); });
+  return fbApi;
+}
+function startCloud(user) {
+  if (cloud && cloud.uid === user.uid) return;
+  const { fs, fsdb, auth, authApi } = fbApi;
+  const localData = JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null');
+  cloud = { fs, fsdb, auth, authApi, uid: user.uid, email: user.email };
+  loadFrom(MIRROR_KEY);
+  const seen = new Set(); let pending = false;
+  const done = () => {
+    if (seen.size < 4) return;
+    // ย้ายข้อมูลที่เคยเก็บในเครื่อง ขึ้นคลาวด์ครั้งแรก
+    if (localData && Object.keys(localData.students || {}).length && !localStorage.getItem('tutor-migrated-' + user.uid)) {
+      localStorage.setItem('tutor-migrated-' + user.uid, '1');
+      if (confirm(`พบข้อมูลในเครื่องนี้ (นักเรียน ${Object.keys(localData.students).length} คน) อัปโหลดขึ้นคลาวด์ไหม?`)) {
+        for (const col of ['students', 'sessions', 'invoices']) Object.values(localData[col] || {}).forEach(o => put(col, o));
+        if (!Object.keys(db.students).length || confirm('ใช้การตั้งค่าจากเครื่องนี้ด้วยไหม?')) putSettings(localData.settings || {});
+      }
+    }
+  };
+  const mark = (k, snap) => { seen.add(k); pending = snap.metadata.hasPendingWrites; syncState = snap.metadata.fromCache ? 'offline' : (pending ? 'pending' : 'synced'); showSync(); saveSnapshot(); render(); done(); };
+  for (const col of ['students', 'sessions', 'invoices']) {
+    fs.onSnapshot(fs.collection(fsdb, 'users', user.uid, col), { includeMetadataChanges: true }, snap => {
+      const o = {}; snap.forEach(d => o[d.id] = d.data()); db[col] = o; mark(col, snap);
+    }, e => { syncState = 'error'; showSync(); toast('ซิงก์ผิดพลาด: ' + e.code); });
+  }
+  fs.onSnapshot(fs.doc(fsdb, 'users', user.uid, 'meta', 'settings'), { includeMetadataChanges: true }, snap => {
+    if (snap.exists()) db.settings = { ...DEFAULT_SETTINGS, ...snap.data() }; mark('settings', snap);
+  });
+  showSync(); renderCloudBox();
+}
+function showSync() {
+  $('#sync').textContent = cloud ? ({ synced: '☁️ ซิงก์แล้ว', pending: '☁️ กำลังซิงก์…', offline: '☁️ ออฟไลน์ (จะซิงก์ทีหลัง)', error: '⚠️ ซิงก์ผิดพลาด' }[syncState] || '☁️')
+    : ((FIREBASE_CONFIG || readCfg()) ? '🔑 ยังไม่ได้ล็อกอิน' : '💾 เก็บในเครื่องนี้');
+}
+
+/* ====================== เริ่มต้น ====================== */
+$('#btnAdd').onclick = () => showStudentForm();
+$('#btnSettings').onclick = showSettings;
+loadFrom((FIREBASE_CONFIG || readCfg()) ? MIRROR_KEY : LOCAL_KEY);
+if (!(FIREBASE_CONFIG || readCfg())) loadFrom(LOCAL_KEY);
+render(); showSync();
+document.fonts.ready.then(render);
+if (FIREBASE_CONFIG || readCfg()) loadFirebase().catch(e => { console.warn(e); syncState = 'error'; showSync(); });
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
+// รีเฟรชตัวนับวันเมื่อกลับมาเปิดแอป
+document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+window.__tutor = { db };
+</script>
+</body>
+</html>
