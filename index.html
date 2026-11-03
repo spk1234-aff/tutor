@@ -254,8 +254,9 @@ function render() {
   const owe = withS.filter(x => x.st.level === 3), due = withS.filter(x => x.st.ub.length >= x.st.n);
   const oweSum = owe.reduce((t, x) => t + x.st.unpaid.reduce((a, i) => a + (+i.amount), 0), 0);
   const ym = todayISO().slice(0, 7), monthSes = Object.values(db.sessions).filter(x => x.date.startsWith(ym) && db.students[x.studentId]);
-  const monthCount = new Set(monthSes.map(x => x.date + '|' + x.hours + '|' + (x.createdAt / 1000 | 0))).size;
-  const monthH = monthSes.reduce((t, x) => t + (+x.hours), 0);
+  // คาบกลุ่มนับครั้งเดียว: คาบที่บันทึกพร้อมกันมี batch เดียวกัน
+  const uniq = new Map(); monthSes.forEach(x => uniq.set(x.batch ? `${x.batch}|${x.k || 0}` : x.id, +x.hours));
+  const monthCount = uniq.size, monthH = [...uniq.values()].reduce((t, v) => t + v, 0);
   $('#summary').innerHTML = `
     <div class="sum due ${due.length ? '' : 'zero'}"><div class="v">${due.length}</div><div class="k">คนถึงรอบเก็บเงิน</div></div>
     <div class="sum owe ${owe.length ? '' : 'zero'}"><div class="v">${money0(oweSum)}</div><div class="k">บาท รอโอน</div></div>
@@ -412,14 +413,23 @@ function showLog(sid, sessionId) {
   const sh = openSheet(`
     <h3>${ses ? 'แก้ไขคาบ' : 'บันทึกคาบ'} · ${esc(st.name)}</h3>
     <label class="f">วันที่สอน<input type="date" id="lDate" value="${ses ? ses.date : todayISO()}" max="${todayISO()}"></label>
-    <div class="f" style="color:var(--mute);font-size:19px">ระยะเวลา</div>
+    ${ses ? '' : `<div class="f" style="color:var(--mute);font-size:19px">วันนี้สอนกี่คาบ</div>
+    <div class="chips" id="lN">${[1, 2, 3].map(n => `<span class="chip ${n === 1 ? 'on' : ''}" data-n="${n}">${n} คาบ</span>`).join('')}</div>
+    <div class="hint" id="lDup"></div>`}
+    <div class="f" style="color:var(--mute);font-size:19px">ระยะเวลาต่อคาบ</div>
     <div class="chips" id="lH">${hours.map(x => `<span class="chip ${x === h ? 'on' : ''}" data-h="${x}">${fmtH(x)}</span>`).join('')}
       <input id="lHx" type="number" step="0.25" min="0.25" inputmode="decimal" placeholder="อื่น ๆ" style="width:90px;border:1.5px solid var(--line);border-radius:999px;padding:2px 12px" value="${hours.includes(h) ? '' : h}"></div>
     ${!ses && others.length ? `<details><summary style="cursor:pointer;color:var(--blue)">สอนเป็นกลุ่ม? เลือกคนที่เรียนด้วยกัน</summary>
       <div class="others">${others.map(o => `<label><input type="checkbox" class="lO" value="${o.id}"> ${esc(o.name)}</label>`).join('')}</div></details>` : ''}
     <div class="row"><button class="btn ghost" id="lCancel">ยกเลิก</button><span class="grow"></span>
       ${ses ? '<button class="btn danger" id="lDel">ลบคาบนี้</button>' : ''}<button class="btn primary" id="lSave">บันทึก</button></div>`, () => { if (back) showDetail(sid); });
-  let back = !!sessionId;
+  let back = !!sessionId, count = 1;
+  if (!ses) {
+    sh.querySelectorAll('#lN .chip').forEach(c => c.onclick = () => { count = +c.dataset.n; sh.querySelectorAll('#lN .chip').forEach(x => x.classList.toggle('on', x === c)); });
+    const showDup = () => { const d = $('#lDate').value, k = studentSessions(sid).filter(x => x.date === d).length;
+      $('#lDup').textContent = k ? `วันที่นี้บันทึกไว้แล้ว ${k} คาบ ถ้าบันทึกอีกจะนับเพิ่มต่อจากเดิม` : ''; };
+    $('#lDate').addEventListener('change', showDup); showDup();
+  }
   sh.querySelectorAll('#lH .chip').forEach(c => c.onclick = () => { h = +c.dataset.h; $('#lHx').value = ''; sh.querySelectorAll('#lH .chip').forEach(x => x.classList.toggle('on', x === c)); });
   $('#lHx').oninput = () => { if (+$('#lHx').value > 0) { h = +$('#lHx').value; sh.querySelectorAll('#lH .chip').forEach(x => x.classList.remove('on')); } };
   $('#lCancel').onclick = closeSheet;
@@ -429,12 +439,13 @@ function showLog(sid, sessionId) {
     if (!(h > 0)) { toast('ใส่ระยะเวลา'); return; }
     const ids = [sid, ...[...sh.querySelectorAll('.lO:checked')].map(x => x.value)];
     if (ses) put('sessions', { ...ses, date, hours: h });
-    else ids.forEach(id => {
-      const dup = studentSessions(id).some(x => x.date === date);
-      if (dup && !confirm(`${db.students[id].name} มีบันทึกวันที่ ${thDate(date)} อยู่แล้ว บันทึกซ้ำอีกคาบไหม?`)) return;
-      put('sessions', { id: uid(), studentId: id, date, hours: h, createdAt: Date.now() });
-      if (db.students[id].lastHours !== h) put('students', { ...db.students[id], lastHours: h });
-    });
+    else {
+      const batch = uid(), now = Date.now();
+      ids.forEach(id => {
+        for (let k = 0; k < count; k++) put('sessions', { id: uid(), studentId: id, date, hours: h, batch, k, createdAt: now + k });
+        if (db.students[id].lastHours !== h) put('students', { ...db.students[id], lastHours: h });
+      });
+    }
     closeSheet();
     if (!ses) { const s2 = status(db.students[sid]); toast(s2.ub.length >= s2.n ? `ครบรอบแล้ว! ออกใบแจ้งได้เลย` : `บันทึกแล้ว ${s2.ub.length}/${s2.n}`); }
   };
