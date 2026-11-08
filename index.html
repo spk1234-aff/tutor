@@ -919,7 +919,7 @@ if (FIREBASE_CONFIG || readCfg()) loadFirebase().catch(e => { console.warn(e); s
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
 // รีเฟรชตัวนับวันเมื่อกลับมาเปิดแอป
 document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
-window.__tutor = { db, render, driveCall };
+window.__tutor = { db, render, driveCall, afterCloudReady, uploadInvoice, get ready() { return !!startCloud.ready; } };
 </script>
 </body>
 </html>
