@@ -287,7 +287,7 @@ const AVATAR = ['#1b3a8c', '#0f7c78', '#8a3fb8', '#c2410c', '#2563a8', '#b0234f'
 const EMOJIS = ['🐶','🐱','🐰','🐻','🐼','🦊','🐯','🦁','🐸','🐧','🐥','🦄','🐙','🐳','🦖','🐢','🌸','🌻','⭐','🌈','⚽','🏀','🎮','🎨','🎸','🚀','📐','🧮'];
 const avatarHTML = s => {
   const ic = s.icon || {};
-  if (ic.type === 'img') return `<div class="avatar"><img src="${esc(ic.v)}" alt=""></div>`;
+  if (ic.type === 'img') { const src = ic.v || (ic.drive && driveImg(ic.drive)); if (src) return `<div class="avatar"><img src="${esc(src)}" alt=""></div>`; }
   if (ic.type === 'emoji') return `<div class="avatar emoji">${esc(ic.v)}</div>`;
   return `<div class="avatar" style="background:${avatarColor(s.name || '?')}">${esc(initial(s.name || '?'))}</div>`;
 };
@@ -381,7 +381,7 @@ function showStudentForm(id) {
     const cur = icon || {};
     $('#fIcon').innerHTML =
       `<button type="button" class="ic letter ${!icon ? 'on' : ''}" data-t="" style="background:${avatarColor(nm)}" title="ตัวอักษร">${esc(initial(nm))}</button>` +
-      (cur.type === 'img' ? `<button type="button" class="ic on" data-t="img" title="รูปภาพ"><img src="${esc(cur.v)}" alt=""></button>` : '') +
+      (cur.type === 'img' ? `<button type="button" class="ic on" data-t="img" title="รูปภาพ"><img src="${esc(cur.v || (cur.drive && driveImg(cur.drive)) || '')}" alt=""></button>` : '') +
       EMOJIS.map(e => `<button type="button" class="ic ${cur.type === 'emoji' && cur.v === e ? 'on' : ''}" data-t="emoji" data-v="${e}">${e}</button>`).join('');
     $('#fIcon').querySelectorAll('.ic').forEach(b => b.onclick = () => {
       if (b.dataset.t === 'emoji') icon = { type: 'emoji', v: b.dataset.v };
@@ -411,7 +411,7 @@ function showStudentForm(id) {
     put('students', { ...s, id: id || uid(), name, note: $('#fNote').value.trim(), icon, perWeek: per,
       cycleSize: Math.max(1, +$('#fSize').value || per * db.settings.weeks), price: +$('#fPrice').value || 0,
       paused: id ? $('#fPaused').checked : false, createdAt: s.createdAt || Date.now() });
-    closeSheet(); toast('บันทึกแล้ว');
+    closeSheet(); toast('บันทึกแล้ว'); setTimeout(migrateIcons, 300);
   };
   if (!id) setTimeout(() => $('#fName').focus(), 50);
 }
@@ -530,6 +530,7 @@ function showIssue(sid) {
     putSettings({ nextNo: (db.settings.nextNo || 1) + 1 });
     put('invoices', iv);
     showInvoice(iv.id);
+    setTimeout(() => uploadInvoice(iv.id), 800);
   };
 }
 function markPaid(ivId) {
@@ -672,6 +673,7 @@ async function showInvoice(ivId, onBack) {
       <button class="btn" id="vCopy">คัดลอกรูป</button>
       <a class="btn" id="vDl" href="${url}" download="${esc(fname)}">ดาวน์โหลด</a>
     </div>
+    ${iv.driveUrl ? `<a class="hint" href="${esc(iv.driveUrl)}" target="_blank" rel="noopener">📁 มีสำเนาใน Google Drive แล้ว — เปิดดู</a>` : ''}
     <div class="hint">iPhone/iPad: กด แชร์ แล้วเลือก LINE หรือ “บันทึกรูปภาพ” · Mac: กด คัดลอกรูป แล้ววางในแชท LINE</div>
     ${iv.status !== 'paid' ? `<button class="btn green" id="vPaid">รับเงินแล้ว</button>` : `<div class="tag paid" style="align-self:flex-start">🔒 รับเงินแล้ว ${thDate(iv.paidAt, false)}</div>`}`;
   $('#vClose').onclick = onBack || closeSheet;
@@ -775,6 +777,83 @@ function renderCloudBox() {
 }
 const readCfg = () => { try { return JSON.parse(localStorage.getItem('tutor-fbcfg') || 'null'); } catch { return null; } };
 
+/* ====================== Google Drive (ผ่าน Apps Script ของบัญชีนี้) ======================
+   ที่อยู่ประตู (url) และรหัสลับ (key) เก็บใน Firebase: users/{uid}/meta/drive — อ่านได้เฉพาะบัญชีที่ล็อกอิน
+   ไม่ใส่ไว้ในโค้ดนี้ เพราะโค้ดแอปเปิดสาธารณะบน GitHub */
+let driveCfg = null;
+async function loadDriveCfg() {
+  if (!cloud) return null;
+  try { const s = await cloud.fs.getDoc(cloud.fs.doc(cloud.fsdb, 'users', cloud.uid, 'meta', 'drive')); driveCfg = s.exists() ? s.data() : null; } catch (e) { console.warn(e); }
+  return driveCfg;
+}
+async function driveCall(body) {
+  if (!driveCfg) await loadDriveCfg();
+  if (!driveCfg?.url) throw new Error('ยังไม่ได้เชื่อม Google Drive');
+  const r = await fetch(driveCfg.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...body, key: driveCfg.key }) });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || 'drive-error');
+  return j;
+}
+const blobToB64 = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(b); });
+const dataUrlToBlob = u => { const [h, d] = u.split(','); const mime = h.match(/:(.*?);/)[1]; const bin = atob(d); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], { type: mime }); };
+async function driveUpload(path, name, blob, opts = {}) {
+  return (await driveCall({ action: 'upload', path, name, mime: blob.type || 'application/octet-stream', data: await blobToB64(blob), ...opts })).file;
+}
+// รูปเล็ก (ไอคอน) ที่เก็บใน Drive: จำไว้ในเครื่องเพื่อแสดงผลเร็วและใช้ออฟไลน์ได้
+const imgCacheKey = id => 'drive-img-' + id;
+const imgPending = new Set();
+function driveImg(id) {
+  let v = null; try { v = localStorage.getItem(imgCacheKey(id)); } catch (e) {}
+  if (v) return v;
+  if (!imgPending.has(id) && cloud) {
+    imgPending.add(id);
+    driveCall({ action: 'get', id }).then(j => { try { localStorage.setItem(imgCacheKey(id), `data:${j.file.mime};base64,${j.data}`); } catch (e) {} render(); }).catch(() => {}).finally(() => setTimeout(() => imgPending.delete(id), 30000));
+  }
+  return null;
+}
+// สำรองข้อมูลวันละครั้ง: ไฟล์ .json ลงโฟลเดอร์ [ชื่อแอป]/สำรองข้อมูล/[ปี พ.ศ.]
+async function dailyBackup(appName, getData) {
+  if (!cloud) return;
+  const today = todayISO();
+  const ref = cloud.fs.doc(cloud.fsdb, 'users', cloud.uid, 'meta', 'drive_backups');
+  try {
+    const s = await cloud.fs.getDoc(ref);
+    if (s.exists() && s.data()[appName] === today) return;
+    if (!(await loadDriveCfg())?.url) return;
+    const blob = new Blob([JSON.stringify({ app: appName, date: today, data: getData() }, null, 1)], { type: 'application/json' });
+    await driveUpload([appName, 'สำรองข้อมูล', String(+today.slice(0, 4) + 543)], `${appName}-สำรอง-${today}.json`, blob, { replace: true });
+    await cloud.fs.setDoc(ref, { [appName]: today }, { merge: true });
+  } catch (e) { console.warn('backup', e); }
+}
+
+// ใบแจ้งชำระ: ส่งสำเนารูปเข้า Drive (สอนพิเศษ/ใบแจ้งชำระ/ปี/เดือน)
+async function uploadInvoice(ivId) {
+  const iv = db.invoices[ivId]; if (!iv || iv.driveId) return;
+  try {
+    const canvas = await drawInvoice(iv), blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+    const [y, m] = iv.issuedAt.split('-').map(Number);
+    const f = await driveUpload(['สอนพิเศษ', 'ใบแจ้งชำระ', String(y + 543), `${pad(m)}-${TH_MONTH_FULL[m - 1]}`], `ใบแจ้ง-${iv.studentName}-รอบ${iv.round}-${iv.no}.png`, blob, { replace: true });
+    put('invoices', { ...db.invoices[ivId], driveId: f.id, driveUrl: f.url });
+  } catch (e) { console.warn('invoice upload', e); }
+}
+// รูปไอคอนนักเรียน: ย้ายจาก Firebase ไปเก็บใน Drive แล้วจำไว้ในเครื่อง
+async function migrateIcons() {
+  for (const s of Object.values(db.students)) {
+    const ic = s.icon; if (!ic || ic.type !== 'img' || !ic.v || ic.drive) continue;
+    try {
+      const f = await driveUpload(['สอนพิเศษ', 'รูปไอคอน'], `${s.name}-${s.id.slice(0, 6)}.jpg`, dataUrlToBlob(ic.v), { replace: true });
+      try { localStorage.setItem(imgCacheKey(f.id), ic.v); } catch (e) {}
+      put('students', { ...db.students[s.id], icon: { type: 'img', drive: f.id } });
+    } catch (e) { console.warn('icon', e); break; }
+  }
+}
+async function afterCloudReady() {
+  await loadDriveCfg(); if (!driveCfg?.url) return;
+  await migrateIcons();
+  for (const iv of Object.values(db.invoices)) if (!iv.driveId) await uploadInvoice(iv.id);
+  dailyBackup('สอนพิเศษ', () => ({ students: db.students, sessions: db.sessions, invoices: db.invoices, settings: db.settings }));
+}
+
 /* ====================== Firebase ====================== */
 let fbApi = null;
 async function loadFirebase() {
@@ -801,6 +880,7 @@ function startCloud(user) {
   const seen = new Set(); let pending = false;
   const done = () => {
     if (seen.size < 4) return;
+    if (!startCloud.ready) { startCloud.ready = true; setTimeout(afterCloudReady, 3000); }
     // ย้ายข้อมูลที่เคยเก็บในเครื่อง ขึ้นคลาวด์ครั้งแรก
     if (localData && Object.keys(localData.students || {}).length && !localStorage.getItem('tutor-migrated-' + user.uid)) {
       localStorage.setItem('tutor-migrated-' + user.uid, '1');
@@ -839,7 +919,7 @@ if (FIREBASE_CONFIG || readCfg()) loadFirebase().catch(e => { console.warn(e); s
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
 // รีเฟรชตัวนับวันเมื่อกลับมาเปิดแอป
 document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
-window.__tutor = { db, render };
+window.__tutor = { db, render, driveCall };
 </script>
 </body>
 </html>
