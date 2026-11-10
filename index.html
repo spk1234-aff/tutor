@@ -2,6 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="utf-8">
+<meta name="app-ver" content="2026-11-10b">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1b3a8c">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -920,6 +921,30 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.se
 // รีเฟรชตัวนับวันเมื่อกลับมาเปิดแอป
 document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
 window.__tutor = { db, render, driveCall, afterCloudReady, uploadInvoice, get ready() { return !!startCloud.ready; } };
+</script>
+<script>
+/* ปุ่มอัปเดต: ถ้ามีเวอร์ชันใหม่บนเว็บ จะขึ้นปุ่มให้แตะเพื่อโหลดใหม่ */
+(function () {
+  const cur = document.querySelector('meta[name="app-ver"]')?.content; let shown = false;
+  async function check() {
+    if (shown || !navigator.onLine || !cur) return;
+    try {
+      const t = await (await fetch(location.pathname + '?ver=' + Date.now(), { cache: 'no-store' })).text();
+      const m = t.match(/<meta name="app-ver" content="([^"]+)"/);
+      if (m && m[1] !== cur) show();
+    } catch (e) {}
+  }
+  function show() {
+    shown = true;
+    const b = document.createElement('button');
+    b.textContent = '🔄 มีอัปเดตใหม่ แตะเพื่ออัปเดต';
+    b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 70px);z-index:200;border:0;border-radius:999px;padding:6px 20px;font:inherit;font-size:21px;font-weight:700;background:#ffd966;color:#3a2b05;box-shadow:0 8px 20px -6px rgba(0,0,0,.45);cursor:pointer;white-space:nowrap';
+    b.onclick = async () => { b.textContent = 'กำลังอัปเดต…'; try { const r = await navigator.serviceWorker?.getRegistration(); await r?.update(); } catch (e) {} location.reload(); };
+    document.body.appendChild(b);
+  }
+  setTimeout(check, 4000); setInterval(check, 30 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+})();
 </script>
 </body>
 </html>
