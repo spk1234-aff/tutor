@@ -1,4 +1,4 @@
-const CACHE = 'tutor-v5';
+const CACHE = 'tutor-v6';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'qr.png', 'icon-180.png', 'icon-192.png', 'icon-512.png',
   'fonts/thsarabunnew-webfont.ttf', 'fonts/thsarabunnew_bold-webfont.ttf'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });

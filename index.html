@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="utf-8">
-<meta name="app-ver" content="2026-11-10b">
+<meta name="app-ver" content="2026-11-11a">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1b3a8c">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -484,7 +484,7 @@ function showDetail(sid, rerender) {
           <span class="tag ${iv.status}">${iv.status === 'paid' ? `🔒 รับเงินแล้ว ${thDate(iv.paidAt, false)}` : (daysSince(iv.issuedAt) ? `รอชำระ ${daysSince(iv.issuedAt)} วัน` : 'รอชำระ · ส่งวันนี้')}</span></div>
         <div class="hint">เลขที่ ${esc(iv.no)} · ออก ${thDate(iv.issuedAt, false)} · ${iv.sessionIds.length} คาบ (${rangeText(iv)})</div>
         <div class="row"><button class="btn" data-d="view" data-x="${iv.id}">ดูใบแจ้ง</button>
-          ${iv.status === 'paid' ? `<button class="btn ghost" data-d="unpaid" data-x="${iv.id}">ยกเลิกการรับเงิน</button>`
+          ${iv.status === 'paid' ? `${iv.slip?.id ? `<button class="btn" data-d="slipv" data-x="${iv.id}">🧾 ดูสลิป</button>` : `<button class="btn" data-d="slipadd" data-x="${iv.id}">🧾 แนบสลิป</button>`}<button class="btn ghost" data-d="unpaid" data-x="${iv.id}">ยกเลิกการรับเงิน</button>`
             : `<button class="btn green" data-d="paid" data-x="${iv.id}">รับเงินแล้ว</button><button class="btn danger" data-d="cancel" data-x="${iv.id}">ยกเลิกใบแจ้ง</button>`}</div>
       </div>`).join('') : '<div class="hint">ยังไม่มี</div>'}`;
   const sh = rerender ? (($('#sheet').innerHTML = html), $('#sheet')) : openSheet(html);
@@ -499,6 +499,8 @@ function showDetail(sid, rerender) {
       issue: () => showIssue(sid),
       view: () => showInvoice(x),
       paid: () => markPaid(x),
+      slipadd: () => markPaid(x, true),
+      slipv: () => viewSlip(db.invoices[x].slip.id),
       unpaid: () => { if (confirm('ยกเลิกสถานะรับเงินแล้ว ของใบแจ้งนี้?')) put('invoices', { ...db.invoices[x], status: 'issued', paidAt: null }); },
       cancel: () => { if (confirm('ยกเลิกใบแจ้งนี้? คาบในใบแจ้งจะกลับมาเป็นคาบที่ยังไม่เก็บเงิน')) del('invoices', x); },
     })[b.dataset.d]();
@@ -534,11 +536,53 @@ function showIssue(sid) {
     setTimeout(() => uploadInvoice(iv.id), 800);
   };
 }
-function markPaid(ivId) {
-  const iv = db.invoices[ivId];
-  if (!confirm(`ยืนยันรับเงิน ${money0(iv.amount)} บาท จาก ${iv.studentName} (รอบที่ ${iv.round})?\nคาบในรอบนี้จะถูกล็อก`)) return;
-  put('invoices', { ...iv, status: 'paid', paidAt: todayISO() });
-  toast('บันทึกรับเงินแล้ว 🔒');
+// รับเงิน: แนบสลิปได้ (อ่านยอดเทียบกับใบแจ้ง แล้วเก็บรูปลง Drive)
+function markPaid(ivId, attachOnly = false) {
+  const iv = db.invoices[ivId]; let slipBlob = null;
+  openSheet(`<h3>${attachOnly ? 'แนบสลิป' : 'รับเงิน'} ${money0(iv.amount)} บาท</h3>
+    <div class="hint">${esc(iv.studentName)} · รอบที่ ${iv.round}${attachOnly ? '' : ' · คาบในรอบนี้จะถูกล็อก'}</div>
+    ${attachOnly ? '' : `<label class="f">วันที่รับเงิน<input id="pDate" type="date" value="${todayISO()}" max="${todayISO()}"></label>`}
+    <label class="btn" style="text-align:center;cursor:pointer">🧾 ${attachOnly ? 'เลือกรูปสลิป' : 'แนบสลิป (ไม่บังคับ)'}<input type="file" id="pSlip" accept="image/*" hidden></label>
+    <div id="pPrev"></div><div id="pInfo" class="hint"></div>
+    <div class="row"><button class="btn ghost" id="pCancel">ยกเลิก</button><span class="grow"></span><button class="btn green" id="pOk" ${attachOnly ? 'disabled' : ''}>${attachOnly ? 'บันทึกสลิป' : 'บันทึกรับเงิน'}</button></div>`);
+  const back = () => showDetail(iv.studentId);
+  $('#pCancel').onclick = back;
+  $('#pSlip').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    const info = $('#pInfo'); info.textContent = 'กำลังอ่านสลิป… (ครั้งแรกใช้เวลาสักครู่)';
+    try {
+      slipBlob = await shrinkImage(f);
+      $('#pPrev').innerHTML = `<img src="${URL.createObjectURL(slipBlob)}" alt="สลิป" style="max-height:30vh;width:100%;object-fit:contain;border-radius:12px;background:#f3f5f4">`;
+      $('#pOk').disabled = false;
+      const p = parseSlip(await ocrImage(slipBlob, pr => { info.textContent = 'กำลังอ่านสลิป… ' + Math.round(pr * 100) + '%'; }), null);
+      if (p.amount == null) info.innerHTML = 'อ่านยอดจากสลิปไม่ได้ ตรวจด้วยตาอีกครั้ง';
+      else if (Math.abs(p.amount - iv.amount) < 0.01) info.innerHTML = `<span style="color:var(--paid);font-weight:700">✓ ยอดในสลิป ${money0(p.amount)} บาท ตรงกับใบแจ้ง</span>`;
+      else info.innerHTML = `<span style="color:#c8323f;font-weight:700">⚠️ ยอดในสลิป ${money0(p.amount)} บาท ไม่ตรงกับใบแจ้ง ${money0(iv.amount)} บาท</span>`;
+      if (p.date && $('#pDate') && p.date <= todayISO()) $('#pDate').value = p.date;
+    } catch (err) { info.textContent = err.message; }
+  };
+  $('#pOk').onclick = async () => {
+    const btn = $('#pOk'); btn.disabled = true;
+    const paidAt = attachOnly ? iv.paidAt : ($('#pDate').value || todayISO());
+    let slip = iv.slip || null;
+    if (slipBlob) {
+      btn.textContent = 'กำลังเก็บสลิปลง Drive…';
+      try { const [y, m] = paidAt.split('-');
+        const f = await driveUpload(['สอนพิเศษ', 'สลิป', String(+y + 543), `${m}-${TH_MONTH_FULL[+m - 1]}`], `${paidAt} ${iv.studentName} รอบ${iv.round} ${money0(iv.amount)}.jpg`.replace(/[\/\\]/g, '-'), slipBlob);
+        slip = { id: f.id };
+      } catch (err) { if (!confirm('เก็บสลิปลง Drive ไม่สำเร็จ (' + err.message + ')\nบันทึกต่อโดยไม่มีสลิป?')) { btn.disabled = false; btn.textContent = 'ลองอีกครั้ง'; return; } }
+    }
+    put('invoices', attachOnly ? { ...iv, slip } : { ...iv, status: 'paid', paidAt, slip });
+    toast(attachOnly ? 'แนบสลิปแล้ว 🧾' : 'บันทึกรับเงินแล้ว 🔒');
+    back();
+  };
+}
+async function viewSlip(fid) {
+  openSheet(`<div class="row"><h3 class="grow">สลิป</h3><button class="btn ghost" id="vsClose">ปิด</button></div><div id="slipImg" class="hint">กำลังโหลดจาก Drive…</div>`);
+  $('#vsClose').onclick = closeSheet;
+  try { const j = await driveCall({ action: 'get', id: fid });
+    $('#slipImg').innerHTML = `<img src="data:${j.file.mime};base64,${j.data}" alt="สลิป" style="width:100%;border-radius:12px"><div style="text-align:center;margin-top:6px"><a href="${j.file.url}" target="_blank" rel="noopener">เปิดใน Google Drive</a></div>`;
+  } catch (e) { const el = $('#slipImg'); if (el) el.textContent = 'โหลดไม่สำเร็จ: ' + e.message; }
 }
 
 /* ---------- ภาพใบแจ้ง ---------- */
@@ -812,6 +856,55 @@ function driveImg(id) {
   }
   return null;
 }
+/* ====================== อ่านสลิป (OCR ฟรีในเครื่อง: Tesseract ภาษาไทย+อังกฤษ) ====================== */
+let ocrWorkerP = null;
+function loadOCR(onProg) {
+  if (!ocrWorkerP) ocrWorkerP = new Promise((res, rej) => {
+    const go = () => window.Tesseract.createWorker(['tha', 'eng'], 1, { logger: m => { if (m.status === 'recognizing text') ocrWorkerP.prog?.(m.progress); } }).then(res, rej);
+    if (window.Tesseract) return go();
+    const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload = go; s.onerror = () => { ocrWorkerP = null; rej(new Error('โหลดตัวอ่านสลิปไม่สำเร็จ (ตรวจอินเทอร์เน็ต)')); }; document.head.appendChild(s);
+  });
+  ocrWorkerP.prog = onProg;
+  return ocrWorkerP;
+}
+// ย่อรูปก่อนอ่าน/เก็บ (ด้านยาวไม่เกิน max) คืน JPEG
+function shrinkImage(file, max = 1600) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => { const k = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas');
+      c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); c.toBlob(b => b ? res(b) : rej(new Error('อ่านรูปไม่ได้')), 'image/jpeg', 0.85); };
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('เปิดรูปนี้ไม่ได้')); };
+    im.src = url;
+  });
+}
+async function ocrImage(blob, onProg) { const w = await loadOCR(onProg); const { data } = await w.recognize(blob); return data.text || ''; }
+const SLIP_TH_M = { 'มค': 1, 'กพ': 2, 'มีค': 3, 'เมย': 4, 'พค': 5, 'มิย': 6, 'กค': 7, 'สค': 8, 'กย': 9, 'ตค': 10, 'พย': 11, 'ธค': 12 };
+const normKey = s => String(s || '').toLowerCase().replace(/[\s.,:;'"()\-_/]/g, '');
+const slipYear = y => { y = +y; if (y < 100) y += 2500; if (y > 2400) y -= 543; return y; };
+const slipISO = (y, m, d) => (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y > 2000 && y < 2100) ? `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null;
+// แยกยอดเงิน วันที่ และชื่อจากข้อความในสลิป
+function parseSlip(text, fallbackDate) {
+  const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+  const NUM = /(\d{1,3}(?:,\d{3})+|\d+)\.(\d{2})(?!\d)/g, val = s => +s.replace(/,/g, '');
+  let amount = null;
+  const ki = lines.findIndex(l => /จ[ำํา]\s*นวน|ยอดเงิน|ยอดโอน|amount/i.test(l));
+  if (ki >= 0) for (let i = ki; i < Math.min(lines.length, ki + 3) && amount == null; i++) { const m = [...lines[i].matchAll(NUM)]; if (m.length) amount = val(m[0][0]); }
+  if (amount == null) { const all = []; lines.forEach(l => { if (/ธรรมเนียม|fee|คงเหลือ|balance|เลขที่|ref/i.test(l)) return; for (const m of l.matchAll(NUM)) all.push(val(m[0])); }); if (all.length) amount = Math.max(...all); }
+  let date = null;
+  for (const l of lines) {
+    let m = l.match(/(\d{1,2})\s*([ก-๙]{1,3}\s?\.?\s?[ก-๙]{1,2}\s?\.?)\s*(\d{2,4})/);
+    if (m) { const k = normKey(m[2]).replace(/[^ก-๙]/g, ''); if (SLIP_TH_M[k]) { date = slipISO(slipYear(m[3]), SLIP_TH_M[k], +m[1]); if (date) break; } }
+    m = l.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/); if (m) { date = slipISO(slipYear(m[3]), +m[2], +m[1]); if (date) break; }
+  }
+  if (!date || date > new Date().toISOString().slice(0, 10)) date = fallbackDate || null;
+  const NAME = /^(จาก|ไปยัง|ถึง|from|to)?\s*(นาย|นาง|น\.?\s?ส\.?|ด\.?\s?[ชญ]\.?|mr\.?\s|mrs\.?\s|ms\.?\s|miss\s)|บจก|บมจ|บริษัท|หจก|การไฟฟ้า|การประปา|ร้าน/i;
+  const names = lines.filter(l => NAME.test(l) && l.length < 60).map(l => l.replace(/^(จาก|ไปยัง|ถึง|from|to)\s*:?\s*/i, '').replace(/[^\sก-๙a-zA-Z0-9.()&]/g, '').trim());
+  return { amount, date, names, from: names[0] || '', to: names[1] || names[0] || '', text };
+}
+
 // สำรองข้อมูลวันละครั้ง: ไฟล์ .json ลงโฟลเดอร์ [ชื่อแอป]/สำรองข้อมูล/[ปี พ.ศ.]
 async function dailyBackup(appName, getData) {
   if (!cloud) return;
