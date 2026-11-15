@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="utf-8">
-<meta name="app-ver" content="2026-11-11a">
+<meta name="app-ver" content="2026-11-15a">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1b3a8c">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -246,6 +246,7 @@ function putSettings(patch) {
 const cycleSize = st => +st.cycleSize || (+st.perWeek * (+db.settings.weeks || 4));
 const studentSessions = sid => Object.values(db.sessions).filter(x => x.studentId === sid).sort((a, b) => a.date.localeCompare(b.date) || (a.createdAt || 0) - (b.createdAt || 0));
 const studentInvoices = sid => Object.values(db.invoices).filter(x => x.studentId === sid).sort((a, b) => (a.round || 0) - (b.round || 0));
+function importData(d) { for (const col of ['students', 'sessions', 'invoices']) Object.values(d[col] || {}).forEach(o => put(col, o)); if (d.settings) putSettings(d.settings); }
 function billedIds(sid) { const s = new Set(); studentInvoices(sid).forEach(iv => (iv.sessionIds || []).forEach(id => s.add(id))); return s; }
 function unbilled(sid) { const b = billedIds(sid); return studentSessions(sid).filter(x => !b.has(x.id)); }
 function status(st) {
@@ -501,7 +502,7 @@ function showDetail(sid, rerender) {
       paid: () => markPaid(x),
       slipadd: () => markPaid(x, true),
       slipv: () => viewSlip(db.invoices[x].slip.id),
-      unpaid: () => { if (confirm('ยกเลิกสถานะรับเงินแล้ว ของใบแจ้งนี้?')) put('invoices', { ...db.invoices[x], status: 'issued', paidAt: null }); },
+      unpaid: () => { const iv = db.invoices[x]; if (!confirm('ยกเลิกสถานะรับเงินแล้ว ของใบแจ้งนี้?' + (iv.slip?.id ? '\nสลิปที่แนบไว้จะถูกย้ายลงถังขยะใน Drive' : ''))) return; if (iv.slip?.id) driveCall({ action: 'trash', id: iv.slip.id }).catch(() => {}); put('invoices', { ...iv, status: 'issued', paidAt: null, slip: null }); },
       cancel: () => { if (confirm('ยกเลิกใบแจ้งนี้? คาบในใบแจ้งจะกลับมาเป็นคาบที่ยังไม่เก็บเงิน')) del('invoices', x); },
     })[b.dataset.d]();
   });
@@ -595,7 +596,7 @@ async function drawInvoice(iv) {
   await ensureAssets();
   const S = db.settings, rows = (iv.snap || []).slice().sort((a, b) => a.date.localeCompare(b.date));
   const W = 1080, P = 70, rowH = 58, F = (w, s) => `${w} ${s}px "TH Sarabun New"`;
-  const H = 520 + rows.length * rowH + 760;
+  const H = 520 + rows.length * rowH + 820;
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d');
   g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
@@ -643,6 +644,7 @@ async function drawInvoice(iv) {
   text(S.accountName, bx, by, F(700, 44));
   y += q + 180;
   if (S.footer) y = wrap(g, S.footer, W / 2, y, W - 2 * P, 46, F(400, 36), '#6b7385');
+  y += 34; text('พัฒนาระบบโดย นายศาสตราวุฒิ อาชนะชัย', W / 2, y, F(400, 26), '#a3a9b8', 'center');
   const out = document.createElement('canvas'); out.width = W; out.height = Math.min(H, y + 50);
   out.getContext('2d').drawImage(c, 0, 0);
   return out;
@@ -758,7 +760,7 @@ function showSettings() {
 
     <h2 style="margin:10px 0 0">สำรองข้อมูล</h2>
     <div class="row"><button class="btn" id="sExport">ส่งออกไฟล์สำรอง (.json)</button>
-      <label class="btn">นำเข้าไฟล์สำรอง<input type="file" id="sImport" accept=".json,application/json" hidden></label></div>
+      <label class="btn">นำเข้าไฟล์สำรอง<input type="file" id="sImport" accept=".json,application/json" hidden></label><button class="btn" id="sRestore">กู้คืนจาก Google Drive</button></div>
     <div class="hint">เวอร์ชัน 1.0</div>`);
   $('#sClose').onclick = closeSheet;
   $('#sSave').onclick = () => {
@@ -775,13 +777,12 @@ function showSettings() {
   $('#sImport').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
     try {
-      const d = JSON.parse(await f.text());
+      const d0 = JSON.parse(await f.text()), d = d0.data || d0;
       if (!d.students || !confirm(`นำเข้า นักเรียน ${Object.keys(d.students).length} คน, คาบ ${Object.keys(d.sessions || {}).length} คาบ?\nข้อมูลที่ id ซ้ำจะถูกแทนที่`)) return;
-      for (const col of ['students', 'sessions', 'invoices']) Object.values(d[col] || {}).forEach(o => put(col, o));
-      if (d.settings) putSettings(d.settings);
-      toast('นำเข้าแล้ว');
+      importData(d); toast('นำเข้าแล้ว');
     } catch (err) { alert('ไฟล์ไม่ถูกต้อง'); }
   };
+  $('#sRestore').onclick = () => showDriveRestore('สอนพิเศษ', importData, 'เลือกวันที่จะกู้คืน ข้อมูลของวันนั้นจะเขียนทับรายการเดิม ส่วนรายการที่เพิ่มหลังวันนั้นยังอยู่');
   renderCloudBox();
 }
 function renderCloudBox() {
@@ -899,12 +900,63 @@ function parseSlip(text, fallbackDate) {
     if (m) { const k = normKey(m[2]).replace(/[^ก-๙]/g, ''); if (SLIP_TH_M[k]) { date = slipISO(slipYear(m[3]), SLIP_TH_M[k], +m[1]); if (date) break; } }
     m = l.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/); if (m) { date = slipISO(slipYear(m[3]), +m[2], +m[1]); if (date) break; }
   }
-  if (!date || date > new Date().toISOString().slice(0, 10)) date = fallbackDate || null;
+  if (!date || date > todayISO()) date = fallbackDate || null;
   const NAME = /^(จาก|ไปยัง|ถึง|from|to)?\s*(นาย|นาง|น\.?\s?ส\.?|ด\.?\s?[ชญ]\.?|mr\.?\s|mrs\.?\s|ms\.?\s|miss\s)|บจก|บมจ|บริษัท|หจก|การไฟฟ้า|การประปา|ร้าน/i;
   const names = lines.filter(l => NAME.test(l) && l.length < 60).map(l => l.replace(/^(จาก|ไปยัง|ถึง|from|to)\s*:?\s*/i, '').replace(/[^\sก-๙a-zA-Z0-9.()&]/g, '').trim());
   return { amount, date, names, from: names[0] || '', to: names[1] || names[0] || '', text };
 }
 
+/* ====================== เชื่อมทุกแอป: สำรองให้ครบทุกแอป + กู้คืนจาก Drive ======================
+   ทุกแอปใช้บัญชีเดียวกัน เปิดแอปไหนก็สำรองข้อมูลของแอปที่เหลือให้ด้วย (วันละครั้ง) */
+const SUITE = {
+  'สอนพิเศษ': { cols: { students: 'students', sessions: 'sessions', invoices: 'invoices' }, set: 'settings' },
+  'หาร': { cols: { people: 'split_people', services: 'split_services', payments: 'split_payments' }, set: 'split_settings' },
+  'วันนี้': { cols: { tasks: 'today_tasks', rules: 'today_rules', occ: 'today_occ', pa: 'today_pa' }, set: 'today_settings' },
+  'ปลูกเงิน': { cols: { months: 'plook_months' }, set: 'plook_settings', setKey: 'set' },
+};
+async function suiteRead(app) {
+  const d = SUITE[app], out = {}; let n = 0;
+  for (const [k, col] of Object.entries(d.cols)) { const o = {}; (await cloud.fs.getDocs(cloud.fs.collection(cloud.fsdb, 'users', cloud.uid, col))).forEach(x => { o[x.id] = x.data(); n++; }); out[k] = o; }
+  const s = await cloud.fs.getDoc(cloud.fs.doc(cloud.fsdb, 'users', cloud.uid, 'meta', d.set)); out[d.setKey || 'settings'] = s.exists() ? s.data() : {};
+  return { data: out, n };
+}
+async function backupOthers() {
+  if (!cloud) return;
+  const today = todayISO(), ref = cloud.fs.doc(cloud.fsdb, 'users', cloud.uid, 'meta', 'drive_backups');
+  try {
+    const s = await cloud.fs.getDoc(ref), done = s.exists() ? s.data() : {};
+    if (Object.keys(SUITE).every(a => done[a] === today) || !(await loadDriveCfg())?.url) return;
+    for (const app of Object.keys(SUITE)) {
+      if (done[app] === today) continue;
+      const { data, n } = await suiteRead(app); if (!n) continue;
+      const blob = new Blob([JSON.stringify({ app, date: today, data }, null, 1)], { type: 'application/json' });
+      await driveCall({ action: 'upload', path: [app, 'สำรองข้อมูล', String(+today.slice(0, 4) + 543)], name: `${app}-สำรอง-${today}.json`, mime: 'application/json', data: await blobToB64(blob), replace: true });
+      await cloud.fs.setDoc(ref, { [app]: today }, { merge: true });
+    }
+  } catch (e) { console.warn('backup-others', e); }
+}
+// กู้คืน: เลือกไฟล์สำรองรายวันจาก Drive แล้วส่งข้อมูลให้ apply
+async function showDriveRestore(app, apply, note) {
+  openSheet(`<h3>กู้คืนจาก Google Drive</h3><div class="hint">${note}</div><div id="rsList" class="hint">กำลังดูไฟล์สำรอง…</div><button class="btn ghost" id="rsClose">ปิด</button>`);
+  $('#rsClose').onclick = () => closeSheet();
+  const box = $('#rsList');
+  try {
+    const y = +todayISO().slice(0, 4) + 543, years = todayISO().slice(5, 7) === '01' ? [y, y - 1] : [y]; let files = [];
+    for (const yy of years) { const j = await driveCall({ action: 'list', path: [app, 'สำรองข้อมูล', String(yy)] }); files.push(...(j.files || [])); }
+    files = files.filter(f => /\d{4}-\d{2}-\d{2}\.json$/.test(f.name)).sort((a, b) => b.name.localeCompare(a.name)).slice(0, 14);
+    if (!files.length) { box.textContent = 'ยังไม่มีไฟล์สำรองใน Drive'; return; }
+    const label = n => { const [yy, mm, dd] = n.match(/(\d{4})-(\d{2})-(\d{2})/).slice(1); return `${+dd}/${+mm}/${+yy + 543}`; };
+    box.innerHTML = files.map(f => `<button class="btn" data-rs="${f.id}" style="margin:3px 4px 3px 0">${label(f.name)}</button>`).join('');
+    box.querySelectorAll('[data-rs]').forEach(b => b.onclick = async () => {
+      if (!confirm(`กู้คืนข้อมูลของวันที่ ${b.textContent}?`)) return;
+      b.disabled = true; b.textContent = 'กำลังกู้คืน…';
+      try { const j = await driveCall({ action: 'get', id: b.dataset.rs });
+        const d = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(j.data), c => c.charCodeAt(0))));
+        await apply(d.data || d); toast('กู้คืนแล้ว'); closeSheet();
+      } catch (e) { alert('กู้คืนไม่สำเร็จ: ' + e.message); b.disabled = false; }
+    });
+  } catch (e) { box.textContent = 'เปิดรายการไฟล์สำรองไม่ได้: ' + e.message; }
+}
 // สำรองข้อมูลวันละครั้ง: ไฟล์ .json ลงโฟลเดอร์ [ชื่อแอป]/สำรองข้อมูล/[ปี พ.ศ.]
 async function dailyBackup(appName, getData) {
   if (!cloud) return;
@@ -945,7 +997,7 @@ async function afterCloudReady() {
   await loadDriveCfg(); if (!driveCfg?.url) return;
   await migrateIcons();
   for (const iv of Object.values(db.invoices)) if (!iv.driveId) await uploadInvoice(iv.id);
-  dailyBackup('สอนพิเศษ', () => ({ students: db.students, sessions: db.sessions, invoices: db.invoices, settings: db.settings }));
+  dailyBackup('สอนพิเศษ', () => ({ students: db.students, sessions: db.sessions, invoices: db.invoices, settings: db.settings })).then(backupOthers);
 }
 
 /* ====================== Firebase ====================== */
@@ -1037,6 +1089,28 @@ window.__tutor = { db, render, driveCall, afterCloudReady, uploadInvoice, get re
   }
   setTimeout(check, 4000); setInterval(check, 30 * 60 * 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+})();
+</script>
+<script>
+/* เมนูสลับแอป: ทุกแอปใช้บัญชีเดียวกัน แตะเพื่อไปอีกแอป */
+(function () {
+  const B = 'https://spk1234-aff.github.io/', APPS = [['ปลูกเงิน', 'port-ert/', 'เงินเข้าออกรายเดือน พอร์ต หนี้'], ['สอนพิเศษ', 'tutor/', 'บันทึกคาบ ใบแจ้ง รับเงิน'], ['หาร', 'split/', 'ใครจ่ายค่าแอปแล้วบ้าง'], ['วันนี้', 'today/', 'งานประจำวัน ตารางสอน ส่งงาน PA']];
+  const anchor = document.querySelector('#btnSettings'); if (!anchor) return;
+  const btn = document.createElement('button'); btn.className = 'iconbtn'; btn.id = 'btnApps'; btn.title = 'แอปอื่น'; btn.setAttribute('aria-label', 'สลับไปแอปอื่น');
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg>';
+  anchor.parentNode.insertBefore(btn, anchor);
+  btn.onclick = () => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(20,30,40,.5);display:flex;align-items:flex-end;justify-content:center';
+    ov.innerHTML = '<div role="dialog" aria-label="แอปของฉัน" style="background:#fff;color:#1d2433;width:min(560px,100%);border-radius:22px 22px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom))">' +
+      '<div style="font-size:28px;font-weight:700;margin:0 4px 8px">แอปของฉัน</div>' +
+      APPS.map(([n, p, d]) => { const cur = location.pathname.indexOf('/' + p) === 0;
+        return '<a href="' + B + p + '" style="display:flex;align-items:center;gap:12px;padding:8px;border-radius:16px;text-decoration:none;color:inherit;' + (cur ? 'background:#eef3f0' : '') + '">' +
+          '<img src="' + B + p + 'icon-192.png" alt="" width="52" height="52" style="border-radius:13px">' +
+          '<span style="flex:1;line-height:1.1"><b style="font-size:25px">' + n + '</b><br><span style="font-size:18px;color:#6b7385">' + (cur ? 'กำลังเปิดอยู่' : d) + '</span></span></a>'; }).join('') + '</div>';
+    ov.onclick = e => { if (e.target === ov) ov.remove(); };
+    document.body.appendChild(ov);
+  };
 })();
 </script>
 </body>
