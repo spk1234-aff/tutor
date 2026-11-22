@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="utf-8">
-<meta name="app-ver" content="2026-11-15a">
+<meta name="app-ver" content="2026-11-22a">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1b3a8c">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -555,7 +555,7 @@ function markPaid(ivId, attachOnly = false) {
       slipBlob = await shrinkImage(f);
       $('#pPrev').innerHTML = `<img src="${URL.createObjectURL(slipBlob)}" alt="สลิป" style="max-height:30vh;width:100%;object-fit:contain;border-radius:12px;background:#f3f5f4">`;
       $('#pOk').disabled = false;
-      const p = parseSlip(await ocrImage(slipBlob, pr => { info.textContent = 'กำลังอ่านสลิป… ' + Math.round(pr * 100) + '%'; }), null);
+      const p = parseSlip(await ocrImage(slipBlob, pr => { info.textContent = 'กำลังอ่านสลิป… ' + Math.round(pr * 100) + '%'; }), null, iv.amount);
       if (p.amount == null) info.innerHTML = 'อ่านยอดจากสลิปไม่ได้ ตรวจด้วยตาอีกครั้ง';
       else if (Math.abs(p.amount - iv.amount) < 0.01) info.innerHTML = `<span style="color:var(--paid);font-weight:700">✓ ยอดในสลิป ${money0(p.amount)} บาท ตรงกับใบแจ้ง</span>`;
       else info.innerHTML = `<span style="color:#c8323f;font-weight:700">⚠️ ยอดในสลิป ${money0(p.amount)} บาท ไม่ตรงกับใบแจ้ง ${money0(iv.amount)} บาท</span>`;
@@ -887,13 +887,19 @@ const normKey = s => String(s || '').toLowerCase().replace(/[\s.,:;'"()\-_/]/g, 
 const slipYear = y => { y = +y; if (y < 100) y += 2500; if (y > 2400) y -= 543; return y; };
 const slipISO = (y, m, d) => (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y > 2000 && y < 2100) ? `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null;
 // แยกยอดเงิน วันที่ และชื่อจากข้อความในสลิป
-function parseSlip(text, fallbackDate) {
+function parseSlip(text, fallbackDate, expect) {
   const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
-  const NUM = /(\d{1,3}(?:,\d{3})+|\d+)\.(\d{2})(?!\d)/g, val = s => +s.replace(/,/g, '');
+  // ตัวอ่านมักอ่านจุลภาคคั่นหลักพันเป็นจุดหรือเว้นวรรค (1,500.00 → 1.500.00 / 1 ,500.00) จึงยอมรับตัวคั่นทั้งสองแบบ
+  const NUM = /(\d{1,3}(?:\s?[,.]\s?\d{3})+|\d+)\s?\.\s?(\d{2})(?!\d)/g, val = m => +(m[1].replace(/\D/g, '') + '.' + m[2]);
+  const tight = l => l.replace(/\s+/g, '');   // ตัวอ่านมักเว้นวรรคแทรกระหว่างอักษรไทย
+  const nums = l => [...l.matchAll(NUM)].map(val);
   let amount = null;
-  const ki = lines.findIndex(l => /จ[ำํา]\s*นวน|ยอดเงิน|ยอดโอน|amount/i.test(l));
-  if (ki >= 0) for (let i = ki; i < Math.min(lines.length, ki + 3) && amount == null; i++) { const m = [...lines[i].matchAll(NUM)]; if (m.length) amount = val(m[0][0]); }
-  if (amount == null) { const all = []; lines.forEach(l => { if (/ธรรมเนียม|fee|คงเหลือ|balance|เลขที่|ref/i.test(l)) return; for (const m of l.matchAll(NUM)) all.push(val(m[0])); }); if (all.length) amount = Math.max(...all); }
+  const ki = lines.findIndex(l => /จ[ำํา]+นวน|ยอดเงิน|ยอดโอน|amount/i.test(tight(l)));
+  if (ki >= 0) for (let i = ki; i < Math.min(lines.length, ki + 3) && amount == null; i++) { const m = nums(lines[i]); if (m.length) amount = m[0]; }
+  const all = []; lines.forEach(l => { if (/ธรรมเนียม|fee|คงเหลือ|balance|เลขที่|ref/i.test(tight(l))) return; all.push(...nums(l)); });
+  if (amount == null && all.length) amount = Math.max(...all);
+  // ถ้ารู้ยอดที่ควรเป็น (ยอดในใบแจ้ง) และพบยอดนั้นในสลิป ให้ใช้ยอดนั้น
+  if (expect != null && amount !== expect && all.some(v => Math.abs(v - expect) < 0.01)) amount = expect;
   let date = null;
   for (const l of lines) {
     let m = l.match(/(\d{1,2})\s*([ก-๙]{1,3}\s?\.?\s?[ก-๙]{1,2}\s?\.?)\s*(\d{2,4})/);
